@@ -1054,11 +1054,7 @@ else
 fi
 
 if [[ $at_least_one_exclude_operator -ne 0 ]]; then
-    # Notes:
-    # - this warning could be solved by running "| customized_function ..." instead of "| grep ..." commands in extra_search_command,
-    #   with customized_function removing filepath and line number before searching. Not done to simplify, it can be a future improvement (performances impacts to assess).
-    # - In case of operators "+" or "++", more occurrences than needed may be listed for the same reasons, but no occurrence will be missed.
-    echo "${BOLD}warning:$NC in paragraph mode, some occurrences may be missing if some strings excluded with \"-\" or \"--\" are part of the filepaths or line numbers" >&2
+    echo "${BOLD}warning:$NC some occurrences may be missing if some strings excluded with \"-\" or \"--\" are part of the filepaths or line numbers" >&2
 fi
 
 # echo "search_command=$search_command"

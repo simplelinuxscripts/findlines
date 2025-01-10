@@ -1,0 +1,1065 @@
+#!/bin/bash
+
+#################################################################################################
+#
+# Find all lines or paragraphs containing a set of strings in filtered files of current folder
+# and its subfolders, in a simple way for most common usage, without need of regular expressions.
+#
+# USAGE:
+#   fl [-i] [-p=N] [-w] [pathstr|/pathstr]* str [+|-|++|-- str]*
+#
+# DESCRIPTION:
+#   The goal of this script is to quickly display all the lines or multi-line paragraphs
+#   matching the str parameters in all the files being filtered by the pathstr parameters
+#   (see below examples).
+#   Special characters (like *, +, |, :, ...) are explicitly searched (they are not interpreted
+#   as in regular expressions which may be complex to use): they are applied as provided in str
+#   parameters.
+#   Binary files contents are also searched, so that as many matching lines as possible are
+#   displayed at the end and no occurrence is missed.
+#
+# OPTIONS:
+#   -i: ignore lower/upper case during the search
+#   -p=N: consider paragraphs of 2N+1 lines during the search (N >= 1) instead of line
+#       by line search (2N+1 = N lines before first str matching line + first str
+#       matching line + N lines after first str matching line)
+#   -w: first str to find shall be a whole word (word-constituent characters are letters,
+#       digits and underscore)
+#
+# EXAMPLES:
+#   fl str
+#     => find all lines containing str in all files of current folder and its subfolders
+#   fl .c str
+#     => find all lines containing str in the .c files of current folder and its subfolders
+#   fl .c .h str1 + str2 - str3
+#     => find all lines containing str1 and str2 and not str3 in the .c and .h files
+#        of current folder and its subfolders
+#   fl .c .h str1 ++ str2 -- str3
+#     => find all lines containing str1 and then str2 and then not str3 in the .c and .h files
+#        of current folder and its subfolders
+#   fl .c /pathstr str
+#     => find all lines containing str in the .c files of current folder and its subfolders
+#        whose path does not contain pathstr (/pathstr excludes, pathstr/ would include)
+#   fl -i .c str
+#     => find all lines containing str in the .c files of current folder and its subfolders
+#        with lower/upper case ignored
+#   fl -w .c str
+#     => find all lines containing the whole word "str" in the .c files of current folder
+#        and its subfolders
+#   fl -p=1 .c str1 + str2
+#     => find all 3-lines long paragraphs containing str1 and str2 in the .c files
+#        of current folder and its subfolders
+#
+# Examples of searches with special characters:
+#   star: fl "x = y * z"
+#   plus: fl "x + y"
+#   parenthesis: fl "(x)"
+#   tilde: fl "~"
+#   pipe: fl "|"
+#   tab: fl $'\x09'
+#
+#################################################################################################
+
+###########
+# Constants
+###########
+
+MAX_ABBREVIATION_LEN=75
+MAX_LEN_FOR_LINE_SPLIT=160
+
+ERROR_COLOR=$'\E[1m\E[4m\E[31m'    # Red
+HEADER_COLOR=$'\E[1m\E[4m\E[35m'   # Magenta
+SOURCE_COLOR=$'\E[1m\E[4m\E[31m'   # Red
+OTHER_COLOR=$'\E[1m\E[4m\E[34m'    # Blue
+FILEPATH_COLOR=$'\E[2m\E[37m'      # White
+BOLD=$'\E[1m'
+NC=$'\E[0m'
+
+character_separator="§"
+paragraph_separator="§§§§§§§§§§"
+paragraph_line_separator="${paragraph_separator}§§§§§"
+grep_ignorecase_option="-i"
+grep_word_option="-w"
+
+abbreviation_str="$BOLD [...] $NC"
+
+###########
+# Functions
+###########
+
+# print error message
+printError() {
+    error_str=$1
+
+    echo -e -n "$ERROR_COLOR" >&2
+    echo -n "$error_str" >&2
+    echo -e "$NC" >&2
+}
+
+# get first character index of a substring in a string, or -1 if the substring is not found
+indexOf() {
+    str=$1
+    substr=$2
+    grep_ignorecase_option_p=$3
+    grep_word_option_p=$4
+
+    # get offset of substr in str in bytes, using the same grep command and options as in main search to keep full compatibility between search and formatting
+    byte_idx=$(echo "$str" | grep --fixed-strings --text -o -b $grep_ignorecase_option_p $grep_word_option_p -- "$substr" | grep -o -E '[0-9]+' | head -n 1)
+    if [[ "$byte_idx" == "" ]]; then
+        echo -1
+    else
+        # convert number of bytes into number of characters, useful for multi-byte non-ASCII characters
+        leading_str=$(echo -n "$str" | head -c $byte_idx)
+        char_idx=$(echo -n "$leading_str" | wc -m)
+        echo $char_idx
+    fi
+}
+
+# extract substring from string between 2 character indexes
+substring() {
+    str=$1
+    start_char_idx=$2 # (start index is included)
+    end_char_idx=$3 # (end index is excluded - can be larger than string length)
+
+    if [[ $end_char_idx -lt $start_char_idx ]]; then
+        printError "substring error: invalid parameters #1 ($start_char_idx, $end_char_idx)"
+        exit 1
+    fi
+    if [[ ${#str} -le $start_char_idx ]]; then
+        printError "substring error: invalid parameters #2 (${#str}, $start_char_idx)"
+        exit 1
+    fi
+    length=$((end_char_idx - start_char_idx))
+    echo "${str:start_char_idx:length}"
+}
+
+# trim a string
+trim() {
+    str=$1
+
+    tmp_str=$(echo "$str" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    echo "$tmp_str"
+}
+left_trim() {
+    str=$1
+
+    tmp_str=$(echo "$str" | sed 's/^[[:space:]]*//')
+    echo "$tmp_str"
+}
+right_trim() {
+    str=$1
+
+    tmp_str=$(echo "$str" | sed 's/[[:space:]]*$//')
+    echo "$tmp_str"
+}
+
+# display spaces
+display_spaces() {
+    nb_spaces=$1
+
+    spaces_str=$(printf "%${nb_spaces}s")
+    echo "$spaces_str"
+}
+
+# abbreviate long strings
+abbreviate() {
+    str=$1
+
+    length=${#str}
+    if [[ $length -gt $((MAX_ABBREVIATION_LEN * 2 + 10)) ]]; then
+        abbreviated_str_1=$(substring "$str" 0 $MAX_ABBREVIATION_LEN)
+        abbreviated_str_1=$(right_trim "$abbreviated_str_1")
+        abbreviated_str_2=$(substring "$str" $((length - $MAX_ABBREVIATION_LEN)) $length)
+        abbreviated_str_2=$(left_trim "$abbreviated_str_2")
+        abbreviated_str=$(echo "$abbreviated_str_1$abbreviation_str$abbreviated_str_2")
+        echo "$abbreviated_str"
+    else
+        echo "$str"
+    fi
+}
+
+# check if a string contains non printable characters
+contains_non_printable_characters() {
+    str=$1
+
+    # Check presence of NULL characters (\x00), necessary to avoid "warning: command substitution: ignored null byte in input"
+    # Note: non-ASCII characters (<=> command "grep -qE $'[^\x01-\x7F]';") are multi-byte and are supported by this script so are not considered as non printable
+    if echo "$str" | grep -qE "\x00"; then
+        echo 1
+    else
+        # Notes:
+        # - ignore \r characters (aka Ctrl+M or "carriage return" characters = \x0D in ASCII, typically present in Windows files)
+        # - \"...\" below avoids errors like "printf: -a: invalid option"
+        # - 2>&1 below avoids errors due to some special characters like: "printf: `▒': invalid format character"
+        # - below regular expression matches any character except [:print:], [:blank:] and \x0D
+        if printf "\"$str\"" 2>&1 | grep --text -qE $'[^[:print:][:blank:]\x0D]|: invalid format character'; then
+          echo 1
+        else
+          echo 0
+        fi
+    fi
+}
+
+# gather paragraph lines
+gather_paragraph_lines() {
+    paragraph_lines=""
+    at_least_one_line=0
+    # in this loop, "IFS=" avoids input lines being trimmed
+    while IFS= read -r input_str; do
+        at_least_one_line=1
+        if [[ "$input_str" == "$paragraph_separator" ]]; then
+            if [[ "$paragraph_lines" == "" ]]; then
+                printError "gather_paragraph_lines error: empty paragraph"
+                exit 1
+            fi
+            echo "$paragraph_lines"
+            paragraph_lines=""
+            echo "$paragraph_separator"
+        else
+            if [[ "$paragraph_lines" == "" ]]; then
+                paragraph_lines="$input_str"
+            else
+                paragraph_lines="$paragraph_lines$paragraph_line_separator$input_str"
+            fi
+        fi
+    done
+    if [[ "$paragraph_lines" == "" && $at_least_one_line -ne 0 ]]; then
+        printError "gather_paragraph_lines error: empty ending paragraph"
+        exit 1
+    fi
+    echo "$paragraph_lines"
+}
+
+# get highlight color for a given file
+get_highlight_color() {
+    filepath=$1
+
+    # header files
+    if [[ "$filepath" == *".h" ||"$filepath" == *".H" ||"$filepath" == *".hpp" ||"$filepath" == *".HPP" ]]; then
+        echo "$HEADER_COLOR"
+    # source files
+    elif [[ "$filepath" == *".c" ||"$filepath" == *".C" ||"$filepath" == *".cpp" ||"$filepath" == *".CPP" || "$filepath" == *".java" || "$filepath" == *".JAVA" ]]; then
+        echo "$SOURCE_COLOR"
+    # other files
+    else
+        echo "$OTHER_COLOR"
+    fi
+}
+
+# format output string
+format_output() {
+    searched_str_p=$1
+    grep_ignorecase_option_p=$2
+    grep_word_option_p=$3
+    paragraph_size_p=$4
+
+    if ! [[ "$paragraph_size_p" =~ ^[0-9]+$ ]]; then
+        printError "format_output error: paragraph size \"$paragraph_size_p\" is not a number"
+        exit 1
+    fi
+
+    searched_str_length=${#searched_str_p}
+    if [[ $searched_str_length -eq 0 ]]; then
+        printError "format_output error: empty searched_str_p"
+        exit 1
+    fi
+
+    last_binary_filepath=""
+    total_nb_lines_displayed=0
+
+    # in this loop, "IFS=" avoids input lines being trimmed
+    while IFS= read -r input_str; do
+
+        if [[ "$input_str" == "" ]]; then
+            continue
+        fi
+
+        # input_str format is ./xxx/yyy/zzz.txt:123:line_contents or ./xxx/yyy/zzz.txt-123-line_contents (possible in paragraph mode)
+        # Note: echo instead of printf as non printable characters were not checked yet (echo will not fail due to special characters)
+        filepath_and_line_number_str=$(echo "$input_str" | grep --text -o -E "^\./[^:]*:[0-9]+:")
+        filepath_and_line_number_length=${#filepath_and_line_number_str}
+        if [[ $filepath_and_line_number_length -ne 0 ]]; then
+            line_number_str=$(echo "$filepath_and_line_number_str" | grep -o -E ":[0-9]+:$")
+            filepath=$(substring "$filepath_and_line_number_str" 0 $((filepath_and_line_number_length - ${#line_number_str})))
+            skip_occurrence_number_display=0
+        elif [[ $paragraph_size_p -ne 0 ]]; then
+            filepath_and_line_number_str=$(echo "$input_str" | grep --text -o -E "^\./[^-]*-[0-9]+-")
+            filepath_and_line_number_length=${#filepath_and_line_number_str}
+            if [[ $filepath_and_line_number_length -eq 0 ]]; then
+                if [[ "$input_str" == "$paragraph_separator" ]]; then
+                    continue
+                else
+                    printError "format_output error: cannot extract filepath and line number in paragraph mode from \"$input_str\""
+                    exit 1
+                fi
+            fi
+            line_number_str=$(echo "$filepath_and_line_number_str" | grep -o -E "\-[0-9]+-$")
+            filepath=$(substring "$filepath_and_line_number_str" 0 $((filepath_and_line_number_length - ${#line_number_str})))
+            skip_occurrence_number_display=1
+        else
+            printError "format_output error: cannot extract filepath and line number from \"$input_str\""
+            exit 1
+        fi
+        highlight_color=$(get_highlight_color "$filepath")
+
+        non_printable_status=$(contains_non_printable_characters "$input_str")
+
+        # Case all characters are printable
+        if [[ $non_printable_status -eq 0 ]]; then
+
+            input_str_length=${#input_str}
+            reformated_filepath_and_line_number_str=$(echo "$filepath_and_line_number_str" | sed 's|^\./||' | sed 's/:$//' | sed 's/-$//')
+
+            # Check if line contents are empty (possible in paragraph mode as non matching lines are displayed)
+            if [[ $filepath_and_line_number_length -eq $input_str_length && $paragraph_size_p -ne 0 ]]; then
+                if [[ $skip_occurrence_number_display -eq 0 ]]; then
+                    total_nb_lines_displayed=$((total_nb_lines_displayed + 1))
+                    echo -e "$FILEPATH_COLOR$total_nb_lines_displayed $reformated_filepath_and_line_number_str$NC"
+                else
+                    echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformated_filepath_and_line_number_str$NC"
+                fi
+            else
+                current_input_str=$(substring "$input_str" $filepath_and_line_number_length $input_str_length)
+
+                if [[ $paragraph_size_p -eq 0 ]]; then
+                    trimmed_current_input_ini_str=$(trim "$current_input_str")
+                    trimmed_current_input_ini_str_length=${#trimmed_current_input_ini_str}
+                    # indentation is replaced by a \t or new line if line is very long
+                    if [[ $((filepath_and_line_number_length + $trimmed_current_input_ini_str_length)) -le $MAX_LEN_FOR_LINE_SPLIT ]]; then
+                        separator="\t"
+                    else
+                        separator="\n"
+                    fi
+                else
+                    separator="\t"
+                fi
+                if [[ $skip_occurrence_number_display -eq 0 ]]; then
+                    total_nb_lines_displayed=$((total_nb_lines_displayed + 1))
+                    echo -e -n "$FILEPATH_COLOR$total_nb_lines_displayed $reformated_filepath_and_line_number_str$NC$separator"
+                else
+                    echo -e -n "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformated_filepath_and_line_number_str$NC$separator"
+                fi
+
+                at_least_one_occurrence_on_line=0
+                while true; do
+                    idx=$(indexOf "$current_input_str" "$searched_str_p" "$grep_ignorecase_option_p" "$grep_word_option_p")
+                    if [[ $idx -eq -1 ]]; then
+                        if [[ $at_least_one_occurrence_on_line -eq 0 && $paragraph_size_p -eq 0 ]]; then
+                            if [[ "$grep_word_option_p" == "" ]]; then
+                                printError "format_output error: first string to find \"$searched_str_p\" not found"
+                                exit 1
+                            else
+                                # warning that no occurrence was successfully highlighted on current line (can occur due to special characters when grep_word_option_p is used)
+                                echo -e -n "$highlight_color[???]$NC "
+                            fi
+                        fi
+                        if [[ "$current_input_str" != "" ]]; then
+                            tmp_abbreviated_str=$(right_trim "$current_input_str")
+                            tmp_abbreviated_str=$(abbreviate "$tmp_abbreviated_str")
+                            echo -n "$tmp_abbreviated_str"
+                        fi
+                        break
+                    fi
+                    if [[ $idx -gt 0 ]]; then
+                        tmp_str=$(substring "$current_input_str" 0 $idx)
+                        # do not change indentation in paragraph mode
+                        if [[ $at_least_one_occurrence_on_line -eq 0 && $paragraph_size_p -eq 0 ]]; then
+                            tmp_str=$(left_trim "$tmp_str")
+                        fi
+                        tmp_abbreviated_str=$(abbreviate "$tmp_str")
+                        echo -n "$tmp_abbreviated_str"
+                    fi
+                    next_idx=$((idx + $searched_str_length))
+                    tmp_str=$(substring "$current_input_str" $idx $next_idx)
+                    echo -e -n "$highlight_color"
+                    echo -n "$tmp_str"
+                    echo -e -n "$NC"
+                    at_least_one_occurrence_on_line=1
+                    current_input_str_length=${#current_input_str}
+                    if [[ $next_idx -lt $current_input_str_length ]]; then
+                        current_input_str=$(substring "$current_input_str" $next_idx $current_input_str_length)
+                    else
+                        break
+                    fi
+                done
+                echo
+            fi
+
+        # Case some characters are non printable
+        else
+            if [[ "$last_binary_filepath" != "$filepath" ]]; then
+                reformated_filepath_and_line_number_str=$(echo "$filepath_and_line_number_str" | sed 's|^\./||' | sed 's/:$/~/' | sed 's/-$/~/')
+                binary_line_msg="some binary line(s) contain"
+                if [[ $skip_occurrence_number_display -eq 0 ]]; then
+                    total_nb_lines_displayed=$((total_nb_lines_displayed + 1))
+                    # searched_str_p deemed always present at this stage (explicit presence check can be disturbed by special characters)
+                    echo -e -n "$FILEPATH_COLOR$total_nb_lines_displayed $reformated_filepath_and_line_number_str$NC $binary_line_msg $highlight_color"
+                 else
+                    echo -e -n "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformated_filepath_and_line_number_str$NC $binary_line_msg $highlight_color"
+                 fi
+                echo -n "$searched_str_p"
+                echo -e "$NC..."
+                last_binary_filepath="$filepath"
+            fi
+        fi
+
+    done
+
+    if [[ $total_nb_lines_displayed -eq 0 ]]; then
+        echo "no occurrence"
+    fi
+}
+
+#################################################################################################
+
+############
+# Unit tests
+############
+
+check_test_condition() {
+    res=$1
+    exp=$2
+    testid=$3
+
+    if [[ ${#res} != ${#exp} || "$res" != "$exp" ]]; then
+        printf 'ERROR %d: \"%q\" is different from \"%q\" (%d, %d)\n' "$testid" "$res" "$exp" "${#res}" "${#exp}" >&2
+    else
+        echo "OK $testid"
+    fi
+}
+
+unit_tests() {
+    echo "Running unit tests..."
+
+    # characters to be marked as special for proper behaviour: \", \`, \$
+
+    MAX_ABBREVIATION_LEN=10000
+    MAX_LEN_FOR_LINE_SPLIT=10000
+
+    complex_str="       019AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% * **    ****    µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( )) ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- --- | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA               "
+    trimmed_complex_str=$(trim "$complex_str")
+
+    test_idx=1
+    # (string not found)
+    res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "abc" "" "" 0 2>&1);
+    if [[ "$res" == *"format_output error: first string to find \"abc\" not found"* ]]; then
+        echo "OK $((test_idx++))"
+    else
+        echo "ERROR $((test_idx++))"
+    fi
+    res=$(echo "./aaa/bbb/ccc/file name.cpp:123:$complex_str" | format_output ".*" "" "" 0 2>&1);
+    if [[ "$res" == *"format_output error: first string to find \".*\" not found"* ]]; then
+        echo "OK $((test_idx++))"
+    else
+        echo "ERROR $((test_idx++))"
+    fi
+    res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "//*" "" "" 0 2>&1);
+    if [[ "$res" == *"format_output error: first string to find \"//*\" not found"* ]]; then
+        echo "OK $((test_idx++))"
+    else
+        echo "ERROR $((test_idx++))"
+    fi
+    res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "" "" "" 0 2>&1);
+    if [[ "$res" == *"empty searched_str_p"* ]]; then
+        echo "OK $((test_idx++))"
+    else
+        echo "ERROR $((test_idx++))"
+    fi
+
+    # (basic [with spaces])
+    res=$(echo "./a/b/c/file name.cpp:123:aBc" | format_output "aBc" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}aBc${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.hpp:123: aBc " | format_output "aBc" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.hpp:123${NC}\t${HEADER_COLOR}aBc${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.txt:123:  aBc  " | format_output "aBc" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.txt:123${NC}\t${OTHER_COLOR}aBc${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name:123:   aBc   " | format_output "aBc" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name:123${NC}\t${OTHER_COLOR}aBc${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:1:   aBc   " | format_output " aBc  " "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:1${NC}\t${SOURCE_COLOR} aBc  ${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:1234567890:   aBc   " | format_output "   aBc" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:1234567890${NC}\t${SOURCE_COLOR}   aBc${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:   aBc   " | format_output "aBc   " "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}aBc   ${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:   aBc   " | format_output "    aBc" "" "" 0 2>&1);
+    if [[ "$res" == *"format_output error: first string to find \"    aBc\" not found"* ]]; then
+        echo "OK $((test_idx++))"
+    else
+        echo "ERROR $((test_idx++))"
+    fi
+
+    res=$(echo "./a/b/c/file name.cpp:123:   aBc   " | format_output "aBc    " "" "" 0 2>&1);
+    if [[ "$res" == *"format_output error: first string to find \"aBc    \" not found"* ]]; then
+        echo "OK $((test_idx++))"
+    else
+        echo "ERROR $((test_idx++))"
+    fi
+
+    test_idx=100
+    # (special characters)
+    res=$(echo "./a/b/c/file name.cpp:123:aBc -a -i --  ----- edF" | format_output "--" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\taBc -a -i ${SOURCE_COLOR}--${NC}  ${SOURCE_COLOR}--${NC}${SOURCE_COLOR}--${NC}- edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:aBc + ++  +++++ edF" | format_output "++" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\taBc + ${SOURCE_COLOR}++${NC}  ${SOURCE_COLOR}++${NC}${SOURCE_COLOR}++${NC}+ edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:aBc * **  ***** edF" | format_output "**" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\taBc * ${SOURCE_COLOR}**${NC}  ${SOURCE_COLOR}**${NC}${SOURCE_COLOR}**${NC}* edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:aBc ^ ^^  ^^^^^ edF" | format_output "^^" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\taBc ^ ${SOURCE_COLOR}^^${NC}  ${SOURCE_COLOR}^^${NC}${SOURCE_COLOR}^^${NC}^ edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:aBc \$ \$\$  \$\$\$\$\$ edF" | format_output "\$\$" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\taBc \$ ${SOURCE_COLOR}\$\$${NC}  ${SOURCE_COLOR}\$\$${NC}${SOURCE_COLOR}\$\$${NC}\$ edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:aBc ( ()  ( (()()) edF" | format_output "()" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\taBc ( ${SOURCE_COLOR}()${NC}  ( (${SOURCE_COLOR}()${NC}${SOURCE_COLOR}()${NC}) edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:aBc ( []  [ [[][]] edF" | format_output "[]" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\taBc ( ${SOURCE_COLOR}[]${NC}  [ [${SOURCE_COLOR}[]${NC}${SOURCE_COLOR}[]${NC}] edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:aBc ( {}  { {{}{}} edF" | format_output "{}" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\taBc ( ${SOURCE_COLOR}{}${NC}  { {${SOURCE_COLOR}{}${NC}${SOURCE_COLOR}{}${NC}} edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:aBc  /  /  edF" | format_output "/" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\taBc  ${SOURCE_COLOR}/${NC}  ${SOURCE_COLOR}/${NC}  edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:aBc  \"  \"  edF" | format_output "\"" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\taBc  ${SOURCE_COLOR}\"${NC}  ${SOURCE_COLOR}\"${NC}  edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:aBc  '  '  edF" | format_output "'" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\taBc  ${SOURCE_COLOR}'${NC}  ${SOURCE_COLOR}'${NC}  edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:aBc  \`  \`  edF" | format_output "\`" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\taBc  ${SOURCE_COLOR}\`${NC}  ${SOURCE_COLOR}\`${NC}  edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:### #" | format_output "#" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}#${NC}${SOURCE_COLOR}#${NC}${SOURCE_COLOR}#${NC} ${SOURCE_COLOR}#${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:xxxxxxx" | format_output "xxx" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}xxx${NC}${SOURCE_COLOR}xxx${NC}x")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:          " | format_output "        " "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}        ${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (substring at the beginning of string)
+    res=$(echo "./a/b/c/file name.cpp:123://x//xx//xxx// edF" | format_output "//" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}//${NC}x${SOURCE_COLOR}//${NC}xx${SOURCE_COLOR}//${NC}xxx${SOURCE_COLOR}//${NC} edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (substring at the end of string)
+    res=$(echo "./a/b/c/file name.cpp:123://x//xx//xxx//" | format_output "//" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}//${NC}x${SOURCE_COLOR}//${NC}xx${SOURCE_COLOR}//${NC}xxx${SOURCE_COLOR}//${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (spaces only)
+    res=$(echo "./a/b/c/file name.cpp:123:   aBc    deF   " | format_output "   " "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}   ${NC}aBc${SOURCE_COLOR}   ${NC} deF${SOURCE_COLOR}   ${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (ignore case)
+    res=$(echo "./a/b/c/file name.cpp:123: abcDEF  " | format_output "ABCdef " "" "" 0 2>&1);
+    if [[ "$res" == *"format_output error: first string to find \"ABCdef \" not found"* ]]; then
+        echo "OK $((test_idx++))"
+    else
+        echo "ERROR $((test_idx++))"
+    fi
+
+    res=$(echo "./a/b/c/file name.cpp:123:  abcDEF " | format_output "ABCdef " "$grep_ignorecase_option" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}abcDEF ${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    test_idx=200
+    # (complex_str)
+    # (first half of complex_str)
+    res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% * **    ****    µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( ))" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019${SOURCE_COLOR}AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% * **    ****    µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( ))${NC} ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- --- | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (second half of complex_str)
+    res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output " ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- --- | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% * **    ****    µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( ))${SOURCE_COLOR} ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- --- | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "  E  FxYZ,,?&|+;;.  " "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019AbcD${SOURCE_COLOR}  E  FxYZ,,?&|+;;.  ${NC}...:://!! != §%% * **    ****    µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( )) ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- --- | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "  e  FXYZ,,?&|+;;.  " "" "" 0 2>&1);
+    if [[ "$res" == *"format_output error: first string to find \"  e  FXYZ,,?&|+;;.  \" not found"* ]]; then
+        echo "OK $((test_idx++))"
+    else
+        echo "ERROR $((test_idx++))"
+    fi
+
+    res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "  e  FXYZ,,?&|+;;.  " "$grep_ignorecase_option" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019AbcD${SOURCE_COLOR}  E  FxYZ,,?&|+;;.  ${NC}...:://!! != §%% * **    ****    µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( )) ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- --- | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "² <>aA" "$grep_ignorecase_option" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% * **    ****    µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( )) ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- --- | || ' '' ''' \" \"\" ## # \" ~ & && ${SOURCE_COLOR}² <>aA${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "* " "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% ${SOURCE_COLOR}* ${NC}*${SOURCE_COLOR}* ${NC}   ***${SOURCE_COLOR}* ${NC}   µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( )) ( ) () [[ ]] [ ] [] ° @ / // /${SOURCE_COLOR}* ${NC}*/ ^ ^^ _ __ \ \\ \` -  -- --- | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    test_idx=300
+    # (non-printable characters)
+    res=$(contains_non_printable_characters " Hello ")
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(contains_non_printable_characters " Hel\x00lo ")
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(contains_non_printable_characters "-a Hel\x02lo ")
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(contains_non_printable_characters "-a Hel\x08xx ")
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.hpp:123:AB\x00abcDEF" | format_output "Abcd" "$grep_ignorecase_option" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.hpp:123~${NC} some binary line(s) contain ${HEADER_COLOR}Abcd${NC}...")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:\x02abcDEF" | format_output "Abcd" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123~${NC} some binary line(s) contain ${SOURCE_COLOR}Abcd${NC}...")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:\x03abcDEF" | format_output "abcD" "$grep_ignorecase_option" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123~${NC} some binary line(s) contain ${SOURCE_COLOR}abcD${NC}...")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (non-ASCII character: µ is encoded on 2 bytes)
+    res=$(echo "./a/b/c/file name.cpp:123:µµµabcDEF" | format_output "µµabcD" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\tµ${SOURCE_COLOR}µµabcD${NC}EF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (non-ASCII character: § is encoded on 2 bytes)
+    res=$(echo "./a/b/c/file name.cpp:123:x§µ§abcD§EF" | format_output "§abcD§" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\tx§µ${SOURCE_COLOR}§abcD§${NC}EF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (\x0D=\r shall be ignored for binary line detection)
+    res=$(echo "./a/b/c/file name.hpp:123:AB\x0DabcDE\rF" | format_output "Abcd" "$grep_ignorecase_option" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.hpp:123${NC}\t")
+    exp=$(echo "${exp}AB\x0D${HEADER_COLOR}abcD${NC}E\rF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (\x0D=\r shall be ignored for binary line detection)
+    res=$(echo "./a/b/c/file name.hpp:123:AB\x0DabcDE\rF" | format_output "\r" "$grep_ignorecase_option" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.hpp:123${NC}\t")
+    exp=$(echo "${exp}AB\x0DabcDE${HEADER_COLOR}\r${NC}F")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    test_idx=400
+    # (file path and line number extraction)
+    res=$(echo "./a/b/c/file name.cpp:123:aBc - --  ----- edF" | format_output "--" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\taBc - ${SOURCE_COLOR}--${NC}  ${SOURCE_COLOR}--${NC}${SOURCE_COLOR}--${NC}- edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.hpp:123: aBc - --  ----- edF " | format_output "--" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.hpp:123${NC}\taBc - ${HEADER_COLOR}--${NC}  ${HEADER_COLOR}--${NC}${HEADER_COLOR}--${NC}- edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "x/a/b/c/file name.cpp:123:ABC" | format_output "B" "" "" 0 2>&1);
+    if [[ "$res" == *"cannot extract filepath and line number from"* ]]; then
+        echo "OK $((test_idx++))"
+    else
+        echo "ERROR $((test_idx++))"
+    fi
+    res=$(echo "./a/b/c/file name.cpp:xxx:123" | format_output "B" "" "" 0 2>&1);
+    if [[ "$res" == *"cannot extract filepath and line number from"* ]]; then
+        echo "OK $((test_idx++))"
+    else
+        echo "ERROR $((test_idx++))"
+    fi
+    # (tolerated extremely rare extraction error)
+    res=$(echo "./a/b/c/file name:456:.hpp:123: aBc -- 78 " | format_output "--" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name:456${NC}\t.hpp:123: aBc ${OTHER_COLOR}--${NC} 78")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    test_idx=500
+    # (word case)
+    res=$(echo "./a/b/c/file name.cpp:123:ABc xABC _ABC abc ABCy ABC_ zaBCt ,ABC, (ABC) ;ABC; ABC" | format_output "Abc" "$grep_ignorecase_option" "$grep_word_option" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}ABc${NC} xABC _ABC ${SOURCE_COLOR}abc${NC} ABCy ABC_ zaBCt ,${SOURCE_COLOR}ABC${NC}, (${SOURCE_COLOR}ABC${NC}) ;${SOURCE_COLOR}ABC${NC}; ${SOURCE_COLOR}ABC${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123: ABc d xABC d _ABC d abc d ABC dy ABC d_ zaBC dt ,ABC d, (ABC d) ;ABC d; ABC d " | format_output "Abc d" "$grep_ignorecase_option" "$grep_word_option" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}ABc d${NC} xABC d _ABC d ${SOURCE_COLOR}abc d${NC} ABC dy ABC d_ zaBC dt ,${SOURCE_COLOR}ABC d${NC}, (${SOURCE_COLOR}ABC d${NC}) ;${SOURCE_COLOR}ABC d${NC}; ${SOURCE_COLOR}ABC d${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:_Abc d  Abc d_x" | format_output "Abc d" "" "$grep_word_option" 0 2>&1);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}[???]${NC} _Abc d  Abc d_x")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123: ABc d  ABc d   ABc d " | format_output " Abc d " "$grep_ignorecase_option" "$grep_word_option" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR} ABc d ${NC}${SOURCE_COLOR} ABc d ${NC} ${SOURCE_COLOR} ABc d ${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123: ABc d  ABc d x" | format_output " Abc d " "$grep_ignorecase_option" "$grep_word_option" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR} ABc d ${NC} ABc d x")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123: xxx,Abc d,_Abc de+Abc d-;Abc d" | format_output "Abc d" "" "$grep_word_option" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\txxx,${SOURCE_COLOR}Abc d${NC},_Abc de+${SOURCE_COLOR}Abc d${NC}-;${SOURCE_COLOR}Abc d${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:Aaa Aaa A" | format_output "Aaa A" "" "$grep_word_option" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\tAaa ${SOURCE_COLOR}Aaa A${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123: Aaa Aaa A Aaa A " | format_output "Aaa A" "" "$grep_word_option" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\tAaa ${SOURCE_COLOR}Aaa A${NC} ${SOURCE_COLOR}Aaa A${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (abbreviation)
+    MAX_ABBREVIATION_LEN=5
+    res=$(echo "./a/b/c/file name.cpp:123:01234567890123456789abcdefghij01234567890123456789abcdefghij01234567890123456789" | format_output "abcdefghij" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t01234567890123456789${SOURCE_COLOR}abcdefghij${NC}01234567890123456789${SOURCE_COLOR}abcdefghij${NC}01234567890123456789")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:01234567890123456789XabcdefghijY01234567890123456789abcdefghijZ01234567890123456789" | format_output "abcdefghij" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t01234${abbreviation_str}6789X${SOURCE_COLOR}abcdefghij${NC}Y0123${abbreviation_str}56789${SOURCE_COLOR}abcdefghij${NC}Z0123${abbreviation_str}56789")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123: 01234567890123456789X aBcdefghij Y01234567890123456789 aBcdefghij Z01234567zzzzzzzzzzzzzzzzzzzzzzzzzzzz890123456789 " | format_output "AbcdefghiJ" "$grep_ignorecase_option" "$grep_word_option" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t01234${abbreviation_str}789X ${SOURCE_COLOR}aBcdefghij${NC} Y012${abbreviation_str}6789 ${SOURCE_COLOR}aBcdefghij${NC} Z012${abbreviation_str}56789")
+    check_test_condition "$res" "$exp" $((test_idx++))
+    MAX_ABBREVIATION_LEN=10000
+
+    # (line split)
+    MAX_LEN_FOR_LINE_SPLIT=60
+    res=$(echo "./a/b/c/file name.cpp:123: ABCDEFGHIJKLMNOPQRSTUVWXYZ" | format_output "DEF" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\tABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZ")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    MAX_LEN_FOR_LINE_SPLIT=50
+    res=$(echo "./a/b/c/file name.cpp:123: ABCDEFGHIJKLMNOPQRSTUVWXYZ" | format_output "DEF" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\nABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZ")
+    check_test_condition "$res" "$exp" $((test_idx++))
+    MAX_LEN_FOR_LINE_SPLIT=10000
+
+    # (multi-line)
+    res=$(echo -e "./a/b/c/file name.cpp:123: ABCDEFGHIJKLMNOPQRSTUVWXYZ\n./a/b/c/file name.cpp:123: aaABCDEFGHIJKLMNOPQRSTUVWXYZzz" | format_output "DEF" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\tABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZ\n${FILEPATH_COLOR}2 a/b/c/file name.cpp:123${NC}\taaABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZzz")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo -e "./a/b/c/file name.cpp:123: ABCDEFGHIJKLMNOPQRSTUVWXYZ\n./a/b/c/file name.cpp:123: aaABCDEFGHIJKLMNOPQRSTUVWXYZzz\n./a/b/c/file name.cpp:123:   aaaABCDEFGHIJKLMNOPQRSTUVWXYZzzz   " | format_output "def" "$grep_ignorecase_option" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\tABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZ\n${FILEPATH_COLOR}2 a/b/c/file name.cpp:123${NC}\taaABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZzz\n${FILEPATH_COLOR}3 a/b/c/file name.cpp:123${NC}\taaaABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZzzz")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    test_idx=600
+    # (paragraphs)
+    res=$(echo "./a/b/c/file name.cpp:123:xxxxxxx" | format_output "xxx" "" "" 1);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}xxx${NC}${SOURCE_COLOR}xxx${NC}x")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp-123-xxxxxxx" | format_output "xxx" "" "" 2);
+    exp=$(echo -e "  ${FILEPATH_COLOR}a/b/c/file name.cpp-123${NC}\t${SOURCE_COLOR}xxx${NC}${SOURCE_COLOR}xxx${NC}x\nno occurrence")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    multiline_str=$(echo -e "AAA\nBBB\nCCC\n$paragraph_separator\nDDD\nEEE\n\n$paragraph_separator\nFFF\nGGG\nHHH")
+    separate_paragraph_lines_command_args="s/${paragraph_line_separator}/\n/g" # code duplicated from actual code
+    separate_paragraph_lines_command="| sed \"$separate_paragraph_lines_command_args\" " # code duplicated from actual code
+    gather_and_separate_command="gather_paragraph_lines $separate_paragraph_lines_command"
+    res=$(echo "$multiline_str" | eval "$gather_and_separate_command")
+    check_test_condition "$res" "$multiline_str" $((test_idx++))
+
+    multiline_str=$(echo -e "AAA\n$complex_str\nCCC\n$paragraph_separator\n$complex_str\nEEE\n\n$paragraph_separator\nFFF\nGGG\n$complex_str")
+    separate_paragraph_lines_command_args="s/${paragraph_line_separator}/\n/g" # code duplicated from actual code
+    separate_paragraph_lines_command="| sed \"$separate_paragraph_lines_command_args\" " # code duplicated from actual code
+    gather_and_separate_command="gather_paragraph_lines $separate_paragraph_lines_command"
+    res=$(echo "$multiline_str" | eval "$gather_and_separate_command")
+    check_test_condition "$res" "$multiline_str" $((test_idx++))
+}
+
+#################################################################################################
+
+###################
+# Handle parameters
+###################
+
+nb_options=0
+ignorecase=0
+word=0
+paragraphsize=0
+first_str_parameter_idx=-1
+
+options_list=""
+pathstrs_list=""
+pathstrs_list_for_call=""
+strs_list=""
+first_str_to_find=""
+last_str_to_find=""
+main_search_command=""
+extra_search_command=""
+
+parameter_idx=-1
+for arg in "$@"; do
+    ((parameter_idx++))
+
+    # Options
+    #########
+
+    is_option=0
+    if [[ "$nb_options" == "$parameter_idx" ]]; then
+        if [[ $arg == -i ]]; then
+            if [[ $ignorecase -eq 0 ]]; then
+                ignorecase=1
+                options_list="${options_list}IGNORECASE "
+                ((nb_options++))
+                is_option=1
+            fi
+        elif [[ $arg == -w ]]; then
+            if [[ $word -eq 0 ]]; then
+                word=1
+                options_list="${options_list}WORD "
+                ((nb_options++))
+                is_option=1
+            fi
+        elif [[ $arg == -p=* ]]; then
+            if [[ $paragraphsize -eq 0 ]]; then
+                paragraphsize="${arg#*=}"
+                if ! [[ "$paragraphsize" =~ ^[0-9]+$ ]]; then
+                    printError "error: invalid option $arg: $paragraphsize is not a number"
+                    exit 1
+                fi
+                if [[ "$paragraphsize" -lt 1 ]]; then
+                    printError "error: invalid option $arg: $paragraphsize shall be >= 1"
+                    exit 1
+                fi
+                options_list="${options_list}PARAGRAPH=$paragraphsize "
+                ((nb_options++))
+                is_option=1
+            fi
+        elif [[ $arg == -unit_tests ]]; then
+            unit_tests
+            exit 0
+        fi
+        if [[ $is_option -eq 1 ]]; then
+            if [[ $((parameter_idx + 1)) == $# ]]; then
+                printError "error: option $arg shall not be last parameter"
+                exit 1
+            fi
+        fi
+    fi
+
+    # Parameters after options
+    ##########################
+
+    if [[ $is_option -eq 0 ]]; then
+        if [[ "$arg" == "+" || "$arg" == "++" || "$arg" == "-" || "$arg" == "--" ]]; then
+            if [[ $parameter_idx -le $nb_options ]]; then
+                if [[ $nb_options -eq 0 ]]; then
+                    printError "error: operator \"$arg\" shall not be first parameter"
+                else
+                    printError "error: operator \"$arg\" shall not be first parameter after options"
+                fi
+                exit 1
+            fi
+            if [[ $((parameter_idx + 1)) == $# ]]; then
+                printError "error: operator \"$arg\" shall not be last parameter"
+                exit 1
+            fi
+            if [[ $first_str_parameter_idx -eq -1 ]]; then
+                first_str_parameter_idx=$((parameter_idx - 1))
+            fi
+        elif [[ $((parameter_idx + 1)) == $# ]]; then
+            if [[ $first_str_parameter_idx -eq -1 ]]; then
+                first_str_parameter_idx=$parameter_idx
+            fi
+        fi
+    fi
+done
+
+if [[ $first_str_parameter_idx -eq -1 ]]; then
+    printError "error: missing parameter(s): no string(s) to find"
+    exit 1
+fi
+
+if [[ $ignorecase -eq 1 ]]; then
+    grep_ignorecase_option_applied="$grep_ignorecase_option "
+else
+    grep_ignorecase_option_applied=""
+fi
+if [[ $word -eq 1 ]]; then
+    grep_word_option_applied="$grep_word_option "
+else
+    grep_word_option_applied=""
+fi
+if [[ $paragraphsize -ge 1 ]]; then
+    paragraph_option_applied="-C$paragraphsize --group-separator=\"$paragraph_separator\" "
+    gather_paragraph_lines_command="| gather_paragraph_lines "
+    separate_paragraph_lines_command_args="s/${paragraph_line_separator}/\n/g" # code duplicated in unit tests
+    separate_paragraph_lines_command="| sed \"$separate_paragraph_lines_command_args\" " # code duplicated in unit tests
+else
+    paragraph_option_applied=""
+    gather_paragraph_lines_command=""
+    separate_paragraph_lines_command=""
+fi
+
+parameter_idx=-1
+include_operator=1
+at_least_one_exclude_operator=0
+for arg in "$@"; do
+    ((parameter_idx++))
+    if [[ $parameter_idx -ge $nb_options && $parameter_idx -le $((first_str_parameter_idx - 1)) ]]; then
+        if echo "$arg" | grep -q " "; then
+            pathstrs_list="$pathstrs_list\"$arg\" "
+        else
+            pathstrs_list="$pathstrs_list$arg "
+        fi
+        pathstrs_list_for_call="$pathstrs_list_for_call\"$arg\" "
+    elif [[ $parameter_idx -ge $first_str_parameter_idx ]]; then
+        if echo "$arg" | grep -q " "; then
+            strs_list="$strs_list\"$arg\" "
+        else
+            strs_list="$strs_list$arg "
+        fi
+        if [[ "$arg" == "+" ]]; then
+            include_operator=1
+        elif [[ "$arg" == "++" ]]; then
+            include_operator=2
+        elif [[ "$arg" == "-" ]]; then
+            include_operator=3
+        elif [[ "$arg" == "--" ]]; then
+            include_operator=4
+        else
+            if [[ $paragraphsize -ge 1 && ( "$arg" == "$character_separator"* || "$arg" == *"$character_separator" ) ]]; then
+                printError "error: character \"$character_separator\" is used for separators in paragraph mode so shall not be at the start or end of parameters"
+                exit 1
+            fi
+            if [[ $parameter_idx -eq $first_str_parameter_idx ]]; then
+                first_str_to_find="$arg"
+                last_str_to_find="$arg"
+                main_search_command="grep --fixed-strings --text --with-filename -n $grep_ignorecase_option_applied$grep_word_option_applied$paragraph_option_applied-- \"$arg\" "
+            else
+                if [[ $include_operator -eq 1 ]]; then
+                    extra_search_command="$extra_search_command| grep --fixed-strings --text $grep_ignorecase_option_applied-- \"$arg\" "
+                    last_str_to_find="$arg"
+                elif [[ $include_operator -eq 2 ]]; then
+                    if [[ "$last_str_to_find" == "" ]]; then
+                        printError "error: empty last_str_to_find #1"
+                        exit 1
+                    fi
+                    if ! [[ "$last_str_to_find$arg" =~ ^[a-zA-Z0-9_+=/():,\;*\ -]+$ ]]; then
+                        printError "error: when using operator \"++\", parameters shall only contain classical characters"
+                        exit 1
+                    fi
+                    regexp_word_boundary=""
+                    if [[ "$grep_word_option_applied" != "" && "$last_str_to_find" == "$first_str_to_find" ]]; then
+                        # \b...\b in regexp <=> grep -v
+                        regexp_word_boundary="\b"
+                    fi
+                    reformated_arg=$(echo "$arg" | sed 's/\*/\\*/g')
+                    if [[ "$last_str_to_find" == "$first_str_to_find" && "$paragraph_option_applied" == "" ]]; then
+                        # optimize main_search_command
+                        reformated_first_str_to_find=$(echo "$first_str_to_find" | sed 's/\*/\\*/g')
+                        main_search_command="grep --text --with-filename -n $grep_ignorecase_option_applied-- \"$regexp_word_boundary$reformated_first_str_to_find$regexp_word_boundary.*$reformated_arg\" "
+                    else
+                        reformated_last_str_to_find=$(echo "$last_str_to_find" | sed 's/\*/\\*/g')
+                        extra_search_command="$extra_search_command| grep --text $grep_ignorecase_option_applied-- \"$regexp_word_boundary$reformated_last_str_to_find$regexp_word_boundary.*$reformated_arg\" "
+                    fi
+                    last_str_to_find="$arg"
+                elif [[ $include_operator -eq 3 ]]; then
+                    extra_search_command="$extra_search_command| grep --fixed-strings --text -v $grep_ignorecase_option_applied-- \"$arg\" "
+                    at_least_one_exclude_operator=1
+                elif [[ $include_operator -eq 4 ]]; then
+                    if [[ "$last_str_to_find" == "" ]]; then
+                        printError "error: empty last_str_to_find #2"
+                        exit 1
+                    fi
+                    if ! [[ "$last_str_to_find$arg" =~ ^[a-zA-Z0-9_+=/():,\;*\ -]+$ ]]; then
+                        printError "error: when using operator \"--\", parameters shall only contain classical characters"
+                        exit 1
+                    fi
+                    regexp_word_boundary=""
+                    if [[ "$grep_word_option_applied" != "" && "$last_str_to_find" == "$first_str_to_find" ]]; then
+                        # \b...\b in regexp <=> grep -v
+                        regexp_word_boundary="\b"
+                    fi
+                    reformated_last_str_to_find=$(echo "$last_str_to_find" | sed 's/\*/\\*/g')
+                    reformated_arg=$(echo "$arg" | sed 's/\*/\\*/g')
+                    extra_search_command="$extra_search_command| grep --text -v $grep_ignorecase_option_applied-- \"$regexp_word_boundary$reformated_last_str_to_find$regexp_word_boundary.*$reformated_arg\" "
+                    at_least_one_exclude_operator=1
+                else
+                    printError "error: invalid include_operator: $include_operator"
+                    exit 1
+                fi
+            fi
+        fi
+    fi
+done
+
+if [[ "$first_str_to_find" == "" ]]; then
+    printError "error: first string to find is empty"
+    exit 1
+fi
+
+############
+# Processing
+############
+
+SCRIPT_DIR=$(dirname "$0")
+format_command="| format_output \"$first_str_to_find\" \"$(trim "$grep_ignorecase_option_applied")\" \"$(trim "$grep_word_option_applied")\" \"$paragraphsize\" | expand -t 4"
+if [[ $paragraphsize -ge 1 && "$extra_search_command" != "" ]]; then
+    search_command="$SCRIPT_DIR/ff -print0 $pathstrs_list_for_call| xargs -0 $main_search_command$gather_paragraph_lines_command$extra_search_command$separate_paragraph_lines_command$format_command"
+else
+    search_command="$SCRIPT_DIR/ff -print0 $pathstrs_list_for_call| xargs -0 $main_search_command$extra_search_command$format_command"
+fi
+
+echo "**********************************************************************"
+echo -n "find "
+echo -n "$strs_list"
+if [[ "$pathstrs_list" != "" ]]; then
+    echo -n "in ${pathstrs_list}files "
+else
+    echo -n "in all files "
+fi
+if [[ "$options_list" != "" ]]; then
+    echo "[ $options_list] "
+else
+    echo
+fi
+
+if [[ $at_least_one_exclude_operator -ne 0 ]]; then
+    # Notes:
+    # - this warning could be solved by running "| customized_function ..." instead of "| grep ..." commands in extra_search_command,
+    #   with customized_function removing filepath and line number before searching. Not done to simplify, it can be a future improvement (performances impacts to assess).
+    # - In case of operators "+" or "++", more occurrences than needed may be listed for the same reasons, but no occurrence will be missed.
+    echo "${BOLD}warning:$NC in paragraph mode, some occurrences may be missing if some strings excluded with \"-\" or \"--\" are part of the filepaths or line numbers" >&2
+fi
+
+# echo "search_command=$search_command"
+eval "$search_command"

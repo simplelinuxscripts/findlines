@@ -59,10 +59,12 @@ and its subfolders, in a simple way for most common usage, without need of compl
   => find all 3-lines long paragraphs containing str1 and str2 in the .c files
        of current folder and its subfolders
 
-Examples of searches with special characters:  
-  star: fl "x = y * z"  
-  plus: fl "x + y"  
-  parenthesis: fl "(x)"  
-  tilde: fl "~"  
-  pipe: fl "|"  
-  tab: fl $'\x09'
+Examples of searches with special characters (only $ and \ shall be escaped, all others can be used as such):  
+star: fl "x = y * z"  
+plus: fl "x + y"  
+parenthesis: fl "(x)"  
+tilde: fl "~"  
+pipe: fl "|"  
+semicolon: fl ";"  
+dollar: fl "\$"  
+backslash: fl "\\\\"  

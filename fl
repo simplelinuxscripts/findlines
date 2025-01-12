@@ -1,15 +1,16 @@
 #!/bin/bash
 
-#################################################################################################
+###################################################################################################
 #
-# Find all lines or paragraphs containing a set of strings in filtered files of current folder
-# and its subfolders, in a simple way for most common usage, without need of regular expressions.
+# Find all lines or multi-line paragraphs containing a set of strings in filtered files
+# of current folder and its subfolders, in a simple way for most common usage,
+# without need of complex regular expressions.
 #
 # USAGE:
 #   fl [-i] [-p=N] [-w] [pathstr|/pathstr]* str [+|-|++|-- str]*
 #
 # DESCRIPTION:
-#   The goal of this script is to quickly display all the lines or multi-line paragraphs
+#   The goal of this script is to simply and quickly display all the lines or multi-line paragraphs
 #   matching the str parameters in all the files being filtered by the pathstr parameters
 #   (see below examples).
 #   Special characters (like *, +, |, :, ...) are explicitly searched (they are not interpreted
@@ -58,7 +59,7 @@
 #   pipe: fl "|"
 #   tab: fl $'\x09'
 #
-#################################################################################################
+###################################################################################################
 
 ###########
 # Constants
@@ -410,7 +411,7 @@ format_output() {
     fi
 }
 
-#################################################################################################
+###################################################################################################
 
 ############
 # Unit tests
@@ -804,7 +805,7 @@ unit_tests() {
     check_test_condition "$res" "$multiline_str" $((test_idx++))
 }
 
-#################################################################################################
+###################################################################################################
 
 ###################
 # Handle parameters

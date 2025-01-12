@@ -460,6 +460,18 @@ unit_tests() {
     else
         echo "ERROR $((test_idx++))"
     fi
+    res=$(echo "./aaa/bbb/ccc/file name.cpp:123:$complex_str" | format_output ".*" "" "" 0 2>&1);
+    if [[ "$res" == *"format_output error: first string to find \".*\" not found"* ]]; then
+        echo "OK $((test_idx++))"
+    else
+        echo "ERROR $((test_idx++))"
+    fi
+    res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "//*" "" "" 0 2>&1);
+    if [[ "$res" == *"format_output error: first string to find \"//*\" not found"* ]]; then
+        echo "OK $((test_idx++))"
+    else
+        echo "ERROR $((test_idx++))"
+    fi
     res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "" "" "" 0 2>&1);
     if [[ "$res" == *"empty searched_str_p"* ]]; then
         echo "OK $((test_idx++))"
@@ -926,7 +938,7 @@ else
 fi
 if [[ $word -eq 1 ]]; then
     grep_word_option_applied="$grep_word_option "
-    # (^|$|[^a-zA-Z0-9_]) around word in regexp <=> grep -v option
+    # (^|$|[^a-zA-Z0-9_]) around word in regexp <=> grep -w option
     regexp_word_boundary="(^|$|[^a-zA-Z0-9_])"
 else
     grep_word_option_applied=""

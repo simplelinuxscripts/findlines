@@ -40,7 +40,8 @@
 #        of current folder and its subfolders
 #   fl .c /pathstr str
 #     => find all lines containing str in the .c files of current folder and its subfolders
-#        whose path does not contain pathstr (/pathstr excludes, pathstr/ would include)
+#        whose path does not contain pathstr (/pathstr excludes, pathstr/ would include,
+#        pathstr can refer to file and/or folder names)
 #   fl -i .c str
 #     => find all lines containing str in the .c files of current folder and its subfolders
 #        with lower/upper case ignored

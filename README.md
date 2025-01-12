@@ -44,7 +44,8 @@ and its subfolders, in a simple way for most common usage, without need of compl
 
   fl .c /pathstr str  
   => find all lines containing str in the .c files of current folder and its subfolders
-       whose path does not contain pathstr (/pathstr excludes, pathstr/ would include)
+       whose path does not contain pathstr (/pathstr excludes, pathstr/ would include,
+       pathstr can refer to file and/or folder names)
        
   fl -i .c str  
   => find all lines containing str in the .c files of current folder and its subfolders

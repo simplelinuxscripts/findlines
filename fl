@@ -822,7 +822,7 @@ unit_tests() {
     # => the following commands shall work:
     # ./fl "aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ \\$\\$ ?? || :: ,, ;; ** )) ]] }} \\\\\\\\  a\\\\b\\\\t\\\\n  --"
     # ./fl "this test string" +/++/-/-- "this test string"
-    # ./fl "µ%£@&¨#~²" => matching binary line detected
+    # ./fl "µ%£@&¨#~²"
 }
 
 ###################################################################################################

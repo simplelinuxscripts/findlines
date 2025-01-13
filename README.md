@@ -58,3 +58,11 @@ and its subfolders, in a simple way for most common usage, without need of compl
   fl -p=1 .c str1 + str2  
   => find all 3-lines long paragraphs containing str1 and str2 in the .c files
        of current folder and its subfolders
+
+Special characters can be searched directly, for example a search like
+fl .c .h "if (a*b+[(x/y)-z] || d == e) {" will search exactly this string.
+Exception: linux shell $ and \ special characters shall be escaped with \\$ and \\\\,
+for example fl "\\\\xxx\\\\" will search the "\xxx\" string in all files.
+
+Please also note that str parameters strings are supposed not to be overlapping on the lines,
+for example fl xxx + xxx will search xxx twice on the lines.

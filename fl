@@ -52,16 +52,13 @@
 #     => find all 3-lines long paragraphs containing str1 and str2 in the .c files
 #        of current folder and its subfolders
 #
-# Examples of searches with special characters (only $ and \ shall be escaped, all others can be
-# used as such):
-#   star: fl "x = y * z"
-#   plus: fl "x + y"
-#   parenthesis: fl "(x)"
-#   tilde: fl "~"
-#   pipe: fl "|"
-#   semicolon: fl ";"
-#   dollar: fl "\\$"
-#   backslash: fl "\\\\"
+# Special characters can be searched directly, for example a search like
+# fl .c .h "if (a*b+[(x/y)-z] || d == e) {" will search exactly this string.
+# Exception: linux shell $ and \ special characters shall be escaped with \\$ and \\\\,
+# for example fl "\\\\xxx\\\\" will search the "\xxx\" string in all files.
+#
+# Please also note that str parameters strings are supposed not to be overlapping on the lines,
+# for example fl xxx + xxx will search xxx twice on the lines.
 #
 ###################################################################################################
 
@@ -120,7 +117,7 @@ indexOf() {
     fi
 }
 
-# extract substring from string between 2 character indexes
+# extract a substring from a string
 substring() {
     str=$1
     start_char_idx=$2 # (start index is included)
@@ -183,7 +180,7 @@ abbreviate() {
     fi
 }
 
-# check if a string contains non printable characters
+# check if a string contains non printable characters (binary line detection)
 contains_non_printable_characters() {
     str=$1
 
@@ -197,7 +194,7 @@ contains_non_printable_characters() {
         # - \"...\" below avoids errors like "printf: -a: invalid option"
         # - 2>&1 below avoids errors due to some special characters like: "printf: `▒': invalid format character"
         # - below regular expression matches any character except [:print:], [:blank:] and \x0D
-        if printf "\"$str\"" 2>&1 | grep --text -qE $'[^[:print:][:blank:]\x0D]|: invalid format character'; then
+        if printf "%s" "\"$str\"" 2>&1 | grep --text -qE $'[^[:print:][:blank:]\x0D]|: invalid format character'; then
           echo 1
         else
           echo 0
@@ -205,11 +202,11 @@ contains_non_printable_characters() {
     fi
 }
 
-reformat_special_chars() {
-    # in this loop, "IFS=" avoids input lines being trimmed
-    while IFS= read -r input_str; do
-        echo "$input_str" | sed 's/\\/\\\\/g' | sed 's/\[/\\[/g' | sed 's/\]/\\]/g' | sed 's/+/\\+/g' | sed 's/(/\\(/g' | sed 's/)/\\)/g' | sed 's/{/\\{/g' | sed 's/}/\\}/g' | sed 's/\./\\./g' | sed 's/\^/\\^/g' | sed 's/\$/\\$/g' | sed 's/\?/\\?/g' |  sed 's/!/\\!/g' | sed 's/|/\\|/g' | sed 's/\*/\\*/g' | sed 's/-/\\-/g'
-    done
+# escape special characters as needed by grep -E commmand
+escape_special_chars() {
+    str=$1
+
+    echo "$str" | sed 's/\\/\\\\/g' | sed 's/\[/\\[/g' | sed 's/\]/\\]/g' | sed 's/+/\\+/g' | sed 's/(/\\(/g' | sed 's/)/\\)/g' | sed 's/{/\\{/g' | sed 's/}/\\}/g' | sed 's/\./\\./g' | sed 's/\^/\\^/g' | sed 's/\$/\\$/g' | sed 's/\?/\\?/g' |  sed 's/!/\\!/g' | sed 's/|/\\|/g' | sed 's/\*/\\*/g' | sed 's/-/\\-/g'
 }
 
 # gather paragraph lines
@@ -258,7 +255,7 @@ get_highlight_color() {
     fi
 }
 
-# format output string
+# format output
 format_output() {
     searched_str_p=$1
     grep_ignorecase_option_p=$2
@@ -275,6 +272,7 @@ format_output() {
         printError "format_output error: empty searched_str_p"
         exit 1
     fi
+    reformated_searched_str_p=$(escape_special_chars "$searched_str_p")
 
     last_binary_filepath=""
     total_nb_lines_displayed=0
@@ -352,7 +350,6 @@ format_output() {
                     echo -e -n "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformated_filepath_and_line_number_str$NC$separator"
                 fi
 
-                reformated_searched_str_p=$(echo "$searched_str_p" | reformat_special_chars)
                 at_least_one_occurrence_on_line=0
                 while true; do
                     idx=$(indexOf "$current_input_str" "$reformated_searched_str_p" "$grep_ignorecase_option_p" "$grep_word_option_p")
@@ -654,10 +651,10 @@ unit_tests() {
     res=$(contains_non_printable_characters " Hel\x00lo ")
     exp="1"
     check_test_condition "$res" "$exp" $((test_idx++))
-    res=$(contains_non_printable_characters "-a Hel\x02lo ")
+    res=$(contains_non_printable_characters $'\x02')
     exp="1"
     check_test_condition "$res" "$exp" $((test_idx++))
-    res=$(contains_non_printable_characters "-a Hel\x08xx ")
+    res=$(contains_non_printable_characters $'\x08')
     exp="1"
     check_test_condition "$res" "$exp" $((test_idx++))
 
@@ -665,11 +662,11 @@ unit_tests() {
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.hpp:123~${NC} some binary line(s) contain ${HEADER_COLOR}Abcd${NC}...")
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    res=$(echo "./a/b/c/file name.cpp:123:\x02abcDEF" | format_output "Abcd" "" "" 0);
+    res=$(echo "./a/b/c/file name.cpp:123:\x00abcDEF" | format_output "Abcd" "" "" 0);
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123~${NC} some binary line(s) contain ${SOURCE_COLOR}Abcd${NC}...")
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    res=$(echo "./a/b/c/file name.cpp:123:\x03abcDEF" | format_output "abcD" "$grep_ignorecase_option" "" 0);
+    res=$(echo "./a/b/c/file name.cpp:123:\x00abcDEF" | format_output "abcD" "$grep_ignorecase_option" "" 0);
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123~${NC} some binary line(s) contain ${SOURCE_COLOR}abcD${NC}...")
     check_test_condition "$res" "$exp" $((test_idx++))
 
@@ -818,12 +815,13 @@ unit_tests() {
 
     # manual unit tests:
     echo "manual unit tests shall also be run: see below instructions commented in the script"
-    # manual tests shall cover all +/++/-/-- operations with all -i/-p/-w options 
+    # manual tests shall cover all +/++/-/-- operations with all -i/-p/-w options
     # so that they work with a file containing complex sequences of special characters:
-    # aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ $$ ?? || :: ,, ;; ** )) ]] }} \\  --
+    # aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ $$ ?? || :: ,, ;; ** )) ]] }} \\  a\b\t\n  --
     # µ%£@&¨#~²
     # => the following commands shall work:
-    # ./fl "aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ \\$\\$ ?? || :: ,, ;; ** )) ]] }} \\\\\\\\  --"
+    # ./fl "aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ \\$\\$ ?? || :: ,, ;; ** )) ]] }} \\\\\\\\  a\\\\b\\\\t\\\\n  --"
+    # ./fl "this test string" +/++/-/-- "this test string"
     # ./fl "µ%£@&¨#~²" => matching binary line detected
 }
 
@@ -986,7 +984,7 @@ for arg in "$@"; do
                 printError "error: character \"$character_separator\" is used for separators in paragraph mode so shall not be at the start or end of parameters"
                 exit 1
             fi
-            reformated_arg=$(echo "$arg" | reformat_special_chars)
+            reformated_arg=$(escape_special_chars "$arg")
             if [[ $parameter_idx -eq $first_str_parameter_idx ]]; then
                 first_str_to_find="$arg"
                 last_str_to_find="$arg"
@@ -999,7 +997,7 @@ for arg in "$@"; do
                 if [[ $include_operator -eq 1 ]]; then
                     if [[ "$last_str_to_find" == "$first_str_to_find" && "$paragraph_option_applied" == "" ]]; then
                         # optimize main_search_command
-                        reformated_first_str_to_find=$(echo "$first_str_to_find" | reformat_special_chars)
+                        reformated_first_str_to_find=$(escape_special_chars "$first_str_to_find")
                         main_search_command="grep -E --text --with-filename -n $grep_ignorecase_option_applied-- \"$regexp_word_boundary$reformated_first_str_to_find$regexp_word_boundary.*$reformated_arg|$reformated_arg.*$regexp_word_boundary$reformated_first_str_to_find$regexp_word_boundary\" "
                     else
                         # update extra_search_command
@@ -1009,15 +1007,15 @@ for arg in "$@"; do
                 elif [[ $include_operator -eq 2 ]]; then
                     if [[ "$last_str_to_find" == "$first_str_to_find" && "$paragraph_option_applied" == "" ]]; then
                         # optimize main_search_command
-                        reformated_first_str_to_find=$(echo "$first_str_to_find" | reformat_special_chars)
+                        reformated_first_str_to_find=$(escape_special_chars "$first_str_to_find")
                         main_search_command="grep -E --text --with-filename -n $grep_ignorecase_option_applied-- \"$regexp_word_boundary$reformated_first_str_to_find$regexp_word_boundary.*$reformated_arg\" "
                     else
                         # update extra_search_command
                         if [[ "$last_str_to_find" == "$first_str_to_find" ]]; then
-                            reformated_first_str_to_find=$(echo "$first_str_to_find" | reformat_special_chars)
+                            reformated_first_str_to_find=$(escape_special_chars "$first_str_to_find")
                             extra_search_command="$extra_search_command| grep -E --text $grep_ignorecase_option_applied-- \"$regexp_word_boundary$reformated_first_str_to_find$regexp_word_boundary.*$reformated_arg\" "
                         else
-                            reformated_last_str_to_find=$(echo "$last_str_to_find" | reformat_special_chars)
+                            reformated_last_str_to_find=$(escape_special_chars "$last_str_to_find")
                             extra_search_command="$extra_search_command| grep -E --text $grep_ignorecase_option_applied-- \"$reformated_last_str_to_find.*$reformated_arg\" "
                         fi
                     fi
@@ -1027,10 +1025,10 @@ for arg in "$@"; do
                     at_least_one_exclude_operator=1
                 elif [[ $include_operator -eq 4 ]]; then
                     if [[ "$last_str_to_find" == "$first_str_to_find" ]]; then
-                        reformated_first_str_to_find=$(echo "$first_str_to_find" | reformat_special_chars)
+                        reformated_first_str_to_find=$(escape_special_chars "$first_str_to_find")
                         extra_search_command="$extra_search_command| grep -E --text -v $grep_ignorecase_option_applied-- \"$regexp_word_boundary$reformated_first_str_to_find$regexp_word_boundary.*$reformated_arg\" "
                     else
-                        reformated_last_str_to_find=$(echo "$last_str_to_find" | reformat_special_chars)
+                        reformated_last_str_to_find=$(escape_special_chars "$last_str_to_find")
                         extra_search_command="$extra_search_command| grep -E --text -v $grep_ignorecase_option_applied-- \"$reformated_last_str_to_find.*$reformated_arg\" "
                     fi
                     at_least_one_exclude_operator=1

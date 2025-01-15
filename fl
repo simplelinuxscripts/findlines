@@ -52,13 +52,13 @@
 #     => find all 3-lines long paragraphs containing str1 and str2 in the .c files
 #        of current folder and its subfolders
 #
-# Special characters can be searched directly, for example a search like
-# fl .c .h "if (a*b+[(x/y)-z] || d == e) {" will search exactly this string.
-# Exception: linux shell $ and \ special characters shall be escaped with \\$ and \\\\,
-# for example fl "\\\\xxx\\\\" will search the "\xxx\" string in all files.
-#
-# Please also note that str parameters strings are supposed not to be overlapping on the lines,
-# for example fl xxx + xxx will search xxx twice on the lines.
+# Special characters can be searched directly, for example
+# fl "if (a*b+[(x/y)-z] || d == e) {" will search exactly this string without need to escape
+# the special characters.
+# Exception: linux shell $ and \ special characters shall be escaped with \$ and \\,
+# for example fl "\\xxx\$" will search all lines containing "\xxx$" in files.
+# Special characters can also be searched directly with their ASCII code, for example
+# fl $'\x09' will search tab characters (\t) in all files.
 #
 ###################################################################################################
 
@@ -209,6 +209,64 @@ escape_special_chars() {
     echo "$str" | sed 's/\\/\\\\/g' | sed 's/\[/\\[/g' | sed 's/\]/\\]/g' | sed 's/+/\\+/g' | sed 's/(/\\(/g' | sed 's/)/\\)/g' | sed 's/{/\\{/g' | sed 's/}/\\}/g' | sed 's/\./\\./g' | sed 's/\^/\\^/g' | sed 's/\$/\\$/g' | sed 's/\?/\\?/g' |  sed 's/!/\\!/g' | sed 's/|/\\|/g' | sed 's/\*/\\*/g' | sed 's/-/\\-/g'
 }
 
+# check if 2 strings are "correlated"
+correlated_strings() {
+    str1_p=$1
+    str2_p=$2
+    ignorecase_p=$3
+    word_for_str1_p=$4
+
+    if [[ $ignorecase_p -eq 0 ]]; then
+        if [[ $word_for_str1_p -eq 0  ]]; then
+            str1=$(echo "$str1_p")
+            str2=$(echo "$str2_p")
+        else
+            # this simple str1_p reformatting covers most of cases
+            str1=$(echo " $str1_p " | sed 's/[^a-zA-Z0-9_]/ /g')
+            str2=$(echo "$str2_p" | sed 's/[^a-zA-Z0-9_]/ /g')
+        fi
+    else
+        if [[ $word_for_str1_p -eq 0  ]]; then
+            str1=$(echo "$str1_p" | tr '[:upper:]' '[:lower:]')
+            str2=$(echo "$str2_p" | tr '[:upper:]' '[:lower:]')
+        else
+            # this simple str1_p reformatting covers most of cases
+            str1=$(echo " $str1_p " | tr '[:upper:]' '[:lower:]' | sed 's/[^a-zA-Z0-9_]/ /g')
+            str2=$(echo "$str2_p" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-zA-Z0-9_]/ /g')
+        fi
+    fi
+
+    str1_length=${#str1}
+    str2_length=${#str2}
+    min_str_length=$(( str1_length < str2_length ? str1_length : str2_length ))
+    if [[ $min_str_length -eq 0 ]]; then
+        echo "0"
+        return
+    fi
+
+    # check if strings are included in each other
+    if [[ "$str1" == *"$str2"* || "$str2" == *"$str1"* ]]; then
+        echo "1"
+        return
+    fi
+    # check if strings have common start/end substrings, taking into account word boundaries
+    len=1
+    while [[ $len -le $min_str_length ]]; do
+        startsubstr1=$(substring "$str1" 0 $len)
+        if [[ "$str2" == *"$startsubstr1" ]]; then
+            echo "1"
+            return
+        fi
+        startsubstr2=$(substring "$str2" 0 $len)
+        if [[ "$str1" == *"$startsubstr2" ]]; then
+            echo "1"
+            return
+        fi
+        len=$((len + 1))
+    done
+    echo "0"
+}
+
 # gather paragraph lines
 gather_paragraph_lines() {
     paragraph_lines=""
@@ -272,7 +330,7 @@ format_output() {
         printError "format_output error: empty searched_str_p"
         exit 1
     fi
-    reformated_searched_str_p=$(escape_special_chars "$searched_str_p")
+    reformatted_searched_str_p=$(escape_special_chars "$searched_str_p")
 
     last_binary_filepath=""
     total_nb_lines_displayed=0
@@ -318,15 +376,15 @@ format_output() {
         if [[ $non_printable_status -eq 0 ]]; then
 
             input_str_length=${#input_str}
-            reformated_filepath_and_line_number_str=$(echo "$filepath_and_line_number_str" | sed 's|^\./||' | sed 's/:$//' | sed 's/-$//')
+            reformatted_filepath_and_line_number_str=$(echo "$filepath_and_line_number_str" | sed 's|^\./||' | sed 's/:$//' | sed 's/-$//')
 
             # Check if line contents are empty (possible in paragraph mode as non matching lines are displayed)
             if [[ $filepath_and_line_number_length -eq $input_str_length && $paragraph_size_p -ne 0 ]]; then
                 if [[ $skip_occurrence_number_display -eq 0 ]]; then
                     total_nb_lines_displayed=$((total_nb_lines_displayed + 1))
-                    echo -e "$FILEPATH_COLOR$total_nb_lines_displayed $reformated_filepath_and_line_number_str$NC"
+                    echo -e "$FILEPATH_COLOR$total_nb_lines_displayed $reformatted_filepath_and_line_number_str$NC"
                 else
-                    echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformated_filepath_and_line_number_str$NC"
+                    echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str$NC"
                 fi
             else
                 current_input_str=$(substring "$input_str" $filepath_and_line_number_length $input_str_length)
@@ -345,14 +403,14 @@ format_output() {
                 fi
                 if [[ $skip_occurrence_number_display -eq 0 ]]; then
                     total_nb_lines_displayed=$((total_nb_lines_displayed + 1))
-                    echo -e -n "$FILEPATH_COLOR$total_nb_lines_displayed $reformated_filepath_and_line_number_str$NC$separator"
+                    echo -e -n "$FILEPATH_COLOR$total_nb_lines_displayed $reformatted_filepath_and_line_number_str$NC$separator"
                 else
-                    echo -e -n "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformated_filepath_and_line_number_str$NC$separator"
+                    echo -e -n "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str$NC$separator"
                 fi
 
                 at_least_one_occurrence_on_line=0
                 while true; do
-                    idx=$(indexOf "$current_input_str" "$reformated_searched_str_p" "$grep_ignorecase_option_p" "$grep_word_option_p")
+                    idx=$(indexOf "$current_input_str" "$reformatted_searched_str_p" "$grep_ignorecase_option_p" "$grep_word_option_p")
                     if [[ $idx -eq -1 ]]; then
                         if [[ $at_least_one_occurrence_on_line -eq 0 && $paragraph_size_p -eq 0 ]]; then
                             if [[ "$grep_word_option_p" == "" ]]; then
@@ -398,14 +456,14 @@ format_output() {
         # Case some characters are non printable
         else
             if [[ "$last_binary_filepath" != "$filepath" ]]; then
-                reformated_filepath_and_line_number_str=$(echo "$filepath_and_line_number_str" | sed 's|^\./||' | sed 's/:$/~/' | sed 's/-$/~/')
+                reformatted_filepath_and_line_number_str=$(echo "$filepath_and_line_number_str" | sed 's|^\./||' | sed 's/:$/~/' | sed 's/-$/~/')
                 binary_line_msg="some binary line(s) contain"
                 if [[ $skip_occurrence_number_display -eq 0 ]]; then
                     total_nb_lines_displayed=$((total_nb_lines_displayed + 1))
                     # searched_str_p deemed always present at this stage (explicit presence check can be disturbed by special characters)
-                    echo -e -n "$FILEPATH_COLOR$total_nb_lines_displayed $reformated_filepath_and_line_number_str$NC $binary_line_msg $highlight_color"
+                    echo -e -n "$FILEPATH_COLOR$total_nb_lines_displayed $reformatted_filepath_and_line_number_str$NC $binary_line_msg $highlight_color"
                  else
-                    echo -e -n "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformated_filepath_and_line_number_str$NC $binary_line_msg $highlight_color"
+                    echo -e -n "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str$NC $binary_line_msg $highlight_color"
                  fi
                 echo -n "$searched_str_p"
                 echo -e "$NC..."
@@ -442,7 +500,6 @@ unit_tests() {
     echo "Running unit tests..."
 
     # characters to be marked as special for proper behaviour: \", \`, \$
-
     MAX_ABBREVIATION_LEN=10000
     MAX_LEN_FOR_LINE_SPLIT=10000
 
@@ -644,6 +701,143 @@ unit_tests() {
     check_test_condition "$res" "$exp" $((test_idx++))
 
     test_idx=300
+    # (correlated strings)
+    res=$(correlated_strings "abc" "dabe" 0 0)
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "dae" "ab" 1 0)
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(correlated_strings "abc" "abc" 0 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "aBc" "AbC" 0 0)
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "aBc" "AbC" 1 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(correlated_strings "xxxdabc" "d" 0 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "xxxdabc" "Da" 0 0)
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "xxxdabc" "Dab" 1 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "d" "xxxdabc" 0 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "Da" "xxxdabc" 0 0)
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "Dab" "xxxdabc" 1 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(correlated_strings "xxxda" "abc_" 0 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "xxxdabc" "abc_" 0 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "xxxdabc" "aBc_" 0 0)
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "xxxdabc" "aBc_" 1 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(correlated_strings  "abc_" "xxxda" 0 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "abc_" "xxxdabc" 0 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "aBc_""xxxdabc" 0 0)
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "aBc_" "xxxdabc" 1 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(correlated_strings "\\" "\\" 0 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "\$\\" "\\^" 0 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "\\^" "\$\\" 0 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "%µ" "µ¨¨¨¨" 0 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "µ¨¨¨¨" "%µ" 0 0)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(correlated_strings "abc" "abc" 0 1)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "abc" "a" 0 1)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "a" "abc" 0 1)
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "xdabc" "abc_" 0 1)
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "abc_" "xabc" 0 1)
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(correlated_strings "a,b,cd" "!efg" 0 1)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "!efg" "a,b,cd" 0 1)
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(correlated_strings "a,b,cd" "b!cd" 0 1)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "b!cd" "a,b,cd" 0 1)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "b!cdxxx" "yyya,b,cd" 0 1)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(correlated_strings "a,b,cdxxx" "!a!b!" 0 1)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "!a!b!" ",,a,b!xxx" 0 1)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(correlated_strings "A,b;cd" "\$\\a!B-" 1 1)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "\$\\a!B-" "A,b;cd" 1 1)
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "\$\\a!B-" "A,b;;cd" 1 1)
+    exp="1"
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(correlated_strings "a" "" 1 1)
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(correlated_strings "" "a" 1 1)
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    test_idx=400
     # (non-printable characters)
     res=$(contains_non_printable_characters " Hello ")
     exp="0"
@@ -692,7 +886,7 @@ unit_tests() {
     exp=$(echo "${exp}AB\x0DabcDE${HEADER_COLOR}\r${NC}F")
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    test_idx=400
+    test_idx=500
     # (file path and line number extraction)
     res=$(echo "./a/b/c/file name.cpp:123:aBc - --  ----- edF" | format_output "--" "" "" 0);
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\taBc - ${SOURCE_COLOR}--${NC}  ${SOURCE_COLOR}--${NC}${SOURCE_COLOR}--${NC}- edF")
@@ -719,7 +913,7 @@ unit_tests() {
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name:456${NC}\t.hpp:123: aBc ${OTHER_COLOR}--${NC} 78")
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    test_idx=500
+    test_idx=600
     # (word case)
     res=$(echo "./a/b/c/file name.cpp:123:ABc xABC _ABC abc ABCy ABC_ zaBCt ,ABC, (ABC) ;ABC; ABC" | format_output "Abc" "$grep_ignorecase_option" "$grep_word_option" 0);
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}ABc${NC} xABC _ABC ${SOURCE_COLOR}abc${NC} ABCy ABC_ zaBCt ,${SOURCE_COLOR}ABC${NC}, (${SOURCE_COLOR}ABC${NC}) ;${SOURCE_COLOR}ABC${NC}; ${SOURCE_COLOR}ABC${NC}")
@@ -789,7 +983,7 @@ unit_tests() {
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\tABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZ\n${FILEPATH_COLOR}2 a/b/c/file name.cpp:123${NC}\taaABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZzz\n${FILEPATH_COLOR}3 a/b/c/file name.cpp:123${NC}\taaaABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZzzz")
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    test_idx=600
+    test_idx=700
     # (paragraphs)
     res=$(echo "./a/b/c/file name.cpp:123:xxxxxxx" | format_output "xxx" "" "" 1);
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}xxx${NC}${SOURCE_COLOR}xxx${NC}x")
@@ -816,13 +1010,12 @@ unit_tests() {
     # manual unit tests:
     echo "manual unit tests shall also be run: see below instructions commented in the script"
     # manual tests shall cover all +/++/-/-- operations with all -i/-p/-w options
-    # so that they work with a file containing complex sequences of special characters:
-    # aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ $$ ?? || :: ,, ;; ** )) ]] }} \\  a\b\t\n  --
-    # µ%£@&¨#~²
+    # so that they work on a file containing the complex sequence of special characters
+    # (once or several times on the same line):
+    # aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ $$ ?? || :: ,, ;; ** )) ]] }} \\  a\b\t\n  -- µ%£@&¨#~²
     # => the following commands shall work:
-    # ./fl "aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ \\$\\$ ?? || :: ,, ;; ** )) ]] }} \\\\\\\\  a\\\\b\\\\t\\\\n  --"
-    # ./fl "this test string" +/++/-/-- "this test string"
-    # ./fl "µ%£@&¨#~²"
+    # fl "aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ \$\$ ?? || :: ,, ;; ** )) ]] }} \\\\  a\\b\\t\\n  -- µ%£@&¨#~²"
+    # fl [options] "this test string" +/++/-/-- "this test string"
 }
 
 ###################################################################################################
@@ -947,14 +1140,17 @@ if [[ $paragraphsize -ge 1 ]]; then
     gather_paragraph_lines_command="| gather_paragraph_lines "
     separate_paragraph_lines_command_args="s/${paragraph_line_separator}/\n/g" # code duplicated in unit tests
     separate_paragraph_lines_command="| sed \"$separate_paragraph_lines_command_args\" " # code duplicated in unit tests
+    skip_line_info=""
 else
     paragraph_option_applied=""
     gather_paragraph_lines_command=""
     separate_paragraph_lines_command=""
+    skip_line_info="^\./[^:]*:[0-9]+:.*"
 fi
 
 parameter_idx=-1
 include_operator=1
+first_extra_str=0
 at_least_one_exclude_operator=0
 for arg in "$@"; do
     ((parameter_idx++))
@@ -984,58 +1180,67 @@ for arg in "$@"; do
                 printError "error: character \"$character_separator\" is used for separators in paragraph mode so shall not be at the start or end of parameters"
                 exit 1
             fi
-            reformated_arg=$(escape_special_chars "$arg")
+            reformatted_arg=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g')
             if [[ $parameter_idx -eq $first_str_parameter_idx ]]; then
                 first_str_to_find="$arg"
+                reformatted_first_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g')
                 last_str_to_find="$arg"
-                main_search_command="grep -E --text --with-filename -n $grep_ignorecase_option_applied$grep_word_option_applied$paragraph_option_applied-- \"$reformated_arg\" "
+                reformatted_last_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g')
+                main_search_command="grep -E --text --with-filename -n $grep_ignorecase_option_applied$grep_word_option_applied$paragraph_option_applied-- \"$reformatted_arg\" "
             else
                 if [[ "$last_str_to_find" == "" ]]; then
                     printError "error: empty last_str_to_find"
                     exit 1
                 fi
                 if [[ $include_operator -eq 1 ]]; then
-                    if [[ "$last_str_to_find" == "$first_str_to_find" && "$paragraph_option_applied" == "" ]]; then
+                    correlated_strs=$(correlated_strings "$first_str_to_find" "$arg" $ignorecase $word)
+                    # correlated_strs allows to check if "grep -E str1.*str2|str2.*str1" is equivalent to less efficient "grep str1 | grep str2"
+                    if [[ $first_extra_str -eq 0 && "$paragraph_option_applied" == "" && $correlated_strs -eq 0 ]]; then
+                        if [[ "$last_str_to_find" != "$first_str_to_find" ]]; then
+                            printError "error: last_str_to_find != first_str_to_find #1"
+                            exit 1
+                        fi
                         # optimize main_search_command
-                        reformated_first_str_to_find=$(escape_special_chars "$first_str_to_find")
-                        main_search_command="grep -E --text --with-filename -n $grep_ignorecase_option_applied-- \"$regexp_word_boundary$reformated_first_str_to_find$regexp_word_boundary.*$reformated_arg|$reformated_arg.*$regexp_word_boundary$reformated_first_str_to_find$regexp_word_boundary\" "
+                        main_search_command="grep -E --text --with-filename -n $grep_ignorecase_option_applied-- \"$regexp_word_boundary$reformatted_first_str_to_find$regexp_word_boundary.*$reformatted_arg|$reformatted_arg.*$regexp_word_boundary$reformatted_first_str_to_find$regexp_word_boundary\" "
                     else
                         # update extra_search_command
-                        extra_search_command="$extra_search_command| grep -E --text $grep_ignorecase_option_applied-- \"$reformated_arg\" "
+                        extra_search_command="$extra_search_command| grep -E --text $grep_ignorecase_option_applied-- \"$skip_line_info$reformatted_arg\" "
                     fi
                     last_str_to_find="$arg"
+                    reformatted_last_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g')
                 elif [[ $include_operator -eq 2 ]]; then
-                    if [[ "$last_str_to_find" == "$first_str_to_find" && "$paragraph_option_applied" == "" ]]; then
+                    if [[ $first_extra_str -eq 0 && "$paragraph_option_applied" == "" ]]; then
+                        if [[ "$last_str_to_find" != "$first_str_to_find" ]]; then
+                            printError "error: last_str_to_find != first_str_to_find #2"
+                            exit 1
+                        fi
                         # optimize main_search_command
-                        reformated_first_str_to_find=$(escape_special_chars "$first_str_to_find")
-                        main_search_command="grep -E --text --with-filename -n $grep_ignorecase_option_applied-- \"$regexp_word_boundary$reformated_first_str_to_find$regexp_word_boundary.*$reformated_arg\" "
+                        main_search_command="grep -E --text --with-filename -n $grep_ignorecase_option_applied-- \"$regexp_word_boundary$reformatted_first_str_to_find$regexp_word_boundary.*$reformatted_arg\" "
                     else
                         # update extra_search_command
-                        if [[ "$last_str_to_find" == "$first_str_to_find" ]]; then
-                            reformated_first_str_to_find=$(escape_special_chars "$first_str_to_find")
-                            extra_search_command="$extra_search_command| grep -E --text $grep_ignorecase_option_applied-- \"$regexp_word_boundary$reformated_first_str_to_find$regexp_word_boundary.*$reformated_arg\" "
+                        if [[ $first_extra_str -eq 0 ]]; then
+                            extra_search_command="$extra_search_command| grep -E --text $grep_ignorecase_option_applied-- \"$skip_line_info$regexp_word_boundary$reformatted_first_str_to_find$regexp_word_boundary.*$reformatted_arg\" "
                         else
-                            reformated_last_str_to_find=$(escape_special_chars "$last_str_to_find")
-                            extra_search_command="$extra_search_command| grep -E --text $grep_ignorecase_option_applied-- \"$reformated_last_str_to_find.*$reformated_arg\" "
+                            extra_search_command="$extra_search_command| grep -E --text $grep_ignorecase_option_applied-- \"$skip_line_info$reformatted_last_str_to_find.*$reformatted_arg\" "
                         fi
                     fi
                     last_str_to_find="$arg"
+                    reformatted_last_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g')
                 elif [[ $include_operator -eq 3 ]]; then
-                    extra_search_command="$extra_search_command| grep -E --text -v $grep_ignorecase_option_applied-- \"$reformated_arg\" "
+                    extra_search_command="$extra_search_command| grep -E --text -v $grep_ignorecase_option_applied-- \"$skip_line_info$reformatted_arg\" "
                     at_least_one_exclude_operator=1
                 elif [[ $include_operator -eq 4 ]]; then
-                    if [[ "$last_str_to_find" == "$first_str_to_find" ]]; then
-                        reformated_first_str_to_find=$(escape_special_chars "$first_str_to_find")
-                        extra_search_command="$extra_search_command| grep -E --text -v $grep_ignorecase_option_applied-- \"$regexp_word_boundary$reformated_first_str_to_find$regexp_word_boundary.*$reformated_arg\" "
+                    if [[ $first_extra_str -eq 0 ]]; then
+                        extra_search_command="$extra_search_command| grep -E --text -v $grep_ignorecase_option_applied-- \"$skip_line_info$regexp_word_boundary$reformatted_first_str_to_find$regexp_word_boundary.*$reformatted_arg\" "
                     else
-                        reformated_last_str_to_find=$(escape_special_chars "$last_str_to_find")
-                        extra_search_command="$extra_search_command| grep -E --text -v $grep_ignorecase_option_applied-- \"$reformated_last_str_to_find.*$reformated_arg\" "
+                        extra_search_command="$extra_search_command| grep -E --text -v $grep_ignorecase_option_applied-- \"$skip_line_info$reformatted_last_str_to_find.*$reformatted_arg\" "
                     fi
                     at_least_one_exclude_operator=1
                 else
                     printError "error: invalid include_operator: $include_operator"
                     exit 1
                 fi
+                first_extra_str=1
             fi
         fi
     fi
@@ -1051,7 +1256,8 @@ fi
 ############
 
 SCRIPT_DIR=$(dirname "$0")
-format_command="| format_output \"$first_str_to_find\" \"$(trim "$grep_ignorecase_option_applied")\" \"$(trim "$grep_word_option_applied")\" \"$paragraphsize\" | expand -t 4"
+reformatted_first_str_to_find=$(echo "$first_str_to_find" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g')
+format_command="| format_output \"$reformatted_first_str_to_find\" \"$(trim "$grep_ignorecase_option_applied")\" \"$(trim "$grep_word_option_applied")\" \"$paragraphsize\" | expand -t 4"
 if [[ $paragraphsize -ge 1 && "$extra_search_command" != "" ]]; then
     search_command="$SCRIPT_DIR/ff -print0 $pathstrs_list_for_call| xargs -0 $main_search_command$gather_paragraph_lines_command$extra_search_command$separate_paragraph_lines_command$format_command"
 else
@@ -1072,8 +1278,8 @@ else
     echo
 fi
 
-if [[ $at_least_one_exclude_operator -ne 0 ]]; then
-    echo "${BOLD}warning:$NC some occurrences may be missing if some strings excluded with \"-\" or \"--\" are part of the filepaths or line numbers" >&2
+if [[ $paragraphsize -ge 1 && $at_least_one_exclude_operator -ne 0 ]]; then
+    echo "${BOLD}warning:$NC in paragraph mode (-p=N option), some occurrences may be missing if some strings excluded with \"-\" or \"--\" are part of the filepaths or matching line numbers" >&2
 fi
 
 echo "search_command=$search_command"

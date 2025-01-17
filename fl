@@ -73,8 +73,8 @@
 # Constants
 ###########
 
-MAX_ABBREVIATION_LEN=70
-MAX_LEN_FOR_LINE_SPLIT=140
+MAX_ABBREVIATION_LEN=75
+MAX_LEN_FOR_LINE_SPLIT=250
 
 ERROR_COLOR=$'\E[1m\E[4m\E[31m'    # Red
 HEADER_COLOR=$'\E[1m\E[4m\E[35m'   # Magenta
@@ -351,14 +351,14 @@ format_output() {
 
         # input_str format is ./xxx/yyy/zzz.txt:123:line_contents or ./xxx/yyy/zzz.txt-123-line_contents (possible in paragraph mode)
         # Note: echo instead of printf as non printable characters were not checked yet (echo will not fail due to special characters)
-        filepath_and_line_number_str=$(echo "$input_str" | grep --text -o -E "^\./[^:]*:[0-9]+:")
+        filepath_and_line_number_str=$(echo "$input_str" | grep --text -o -P "^\./.*?:[0-9]+:") # Perl regexp is used for non-greedy mode (not supported by Extended Regular Expressions with grep -E)
         filepath_and_line_number_length=${#filepath_and_line_number_str}
         if [[ $filepath_and_line_number_length -ne 0 ]]; then
             line_number_str=$(echo "$filepath_and_line_number_str" | grep -o -E ":[0-9]+:$")
             filepath=$(substring "$filepath_and_line_number_str" 0 $((filepath_and_line_number_length - ${#line_number_str})))
             skip_occurrence_number_display=0
         elif [[ $paragraph_size_p -ne 0 ]]; then
-            filepath_and_line_number_str=$(echo "$input_str" | grep --text -o -E "^\./[^-]*-[0-9]+-")
+            filepath_and_line_number_str=$(echo "$input_str" | grep --text -o -P "^\./.*?-[0-9]+-") # Perl regexp is used for non-greedy mode (not supported by Extended Regular Expressions with grep -E)
             filepath_and_line_number_length=${#filepath_and_line_number_str}
             if [[ $filepath_and_line_number_length -eq 0 ]]; then
                 if [[ "$input_str" == "$paragraph_separator" ]]; then
@@ -514,6 +514,7 @@ unit_tests() {
     trimmed_complex_str=$(trim "$complex_str")
 
     test_idx=1
+
     # (string not found)
     res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "abc" "" "" 0 2>&1);
     if [[ "$res" == *"format_output error: first string to find \"abc\" not found"* ]]; then
@@ -915,11 +916,14 @@ unit_tests() {
     else
         echo "ERROR $((test_idx++))"
     fi
-    # (tolerated extremely rare extraction error)
-    res=$(echo "./a/b/c/file name:456:.hpp:123: aBc -- 78 " | format_output "--" "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name:456${NC}\t.hpp:123: aBc ${OTHER_COLOR}--${NC} 78")
+    # (possible very rare extraction errors)
+    res=$(echo "./a/b/c/file name *+ ~|()!?:456:.hpp:123: aBc -- 78 " | format_output "--" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name *+ ~|()!?:456${NC}\t.hpp:123: aBc ${OTHER_COLOR}--${NC} 78")
     check_test_condition "$res" "$exp" $((test_idx++))
-
+    res=$(echo "./a/b/c/file name *+ ~|()!?:12a:abc:456:.hpp:123: aBc -- 78 " | format_output "--" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name *+ ~|()!?:12a:abc:456${NC}\t.hpp:123: aBc ${OTHER_COLOR}--${NC} 78")
+    check_test_condition "$res" "$exp" $((test_idx++))
+    
     test_idx=600
     # (word case)
     res=$(echo "./a/b/c/file name.cpp:123:ABc xABC _ABC abc ABCy ABC_ zaBCt ,ABC, (ABC) ;ABC; ABC" | format_output "Abc" "$grep_ignorecase_option" "$grep_word_option" 0);
@@ -998,6 +1002,11 @@ unit_tests() {
 
     res=$(echo "./a/b/c/file name.cpp-123-xxxxxxx" | format_output "xxx" "" "" 2);
     exp=$(echo -e "  ${FILEPATH_COLOR}a/b/c/file name.cpp-123${NC}\t${SOURCE_COLOR}xxx${NC}${SOURCE_COLOR}xxx${NC}x\nno occurrence")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (possible very rare extraction error in paragraph mode)
+    res=$(echo "./a/b/c/file name *+ ~|()!?:12-12a-abc-456-.hpp-123- aBc -- 78 " | format_output "--" "" "" 2);
+    exp=$(echo -e "  ${FILEPATH_COLOR}a/b/c/file name *+ ~|()!?:12-12a-abc-456${NC}\t.hpp-123- aBc ${OTHER_COLOR}--${NC} 78\nno occurrence")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     multiline_str=$(echo -e "AAA\nBBB\nCCC\n$paragraph_separator\nDDD\nEEE\n\n$paragraph_separator\nFFF\nGGG\nHHH")

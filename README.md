@@ -32,17 +32,17 @@ need of complex regular expressions.
  `fl .c str`  
    => find all lines containing str in the .c files of current folder and its subfolders  
  `fl .c .h str1 + str2 - str3`  
-   => find all lines containing str1 and str2 and not str3 in the .c and .h files
+   => find all lines containing str1 and str2 and not str3 in the .c or .h files
       of current folder and its subfolders  
  `fl .c .h str1 ++ str2 -- str3`  
-   => find all lines containing str1 and then str2 and then not str3 in the .c and .h files
+   => find all lines containing str1 and then str2 and then not str3 in the .c or .h files
       of current folder and its subfolders  
  `fl mypathstr str`  
    => find all lines containing str in the files of current folder and its subfolders
-      whose path contains "mypathstr" ("mypathstr" in file and/or folder names)  
+      whose path contains "mypathstr" ("mypathstr" in file or folder names)  
  `fl .c /mypathstr str`  
    => find all lines containing str in the .c files of current folder and its subfolders
-      whose path does not contain "mypathstr" ("mypathstr" not in file and/or folder names)  
+      whose path does not contain "mypathstr" ("mypathstr" not in file and folder names)  
  `fl -i .c str`  
    => find all lines containing str in the .c files of current folder and its subfolders
       with lower/upper case ignored  

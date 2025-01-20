@@ -77,11 +77,12 @@ MAX_ABBREVIATION_LEN=75
 MAX_LEN_FOR_LINE_SPLIT=250
 
 ERROR_COLOR=$'\E[1m\E[4m\E[31m'    # Red
-HEADER_COLOR=$'\E[1m\E[4m\E[35m'   # Magenta
 SOURCE_COLOR=$'\E[1m\E[4m\E[31m'   # Red
-OTHER_COLOR=$'\E[1m\E[4m\E[34m'    # Blue
+HEADER_COLOR=$'\E[1m\E[4m\E[32m'   # Green
+OTHER_COLOR=$'\E[1m\E[4m\E[36m'    # Cyan
 FILEPATH_COLOR=$'\E[2m\E[37m'      # White
 BOLD=$'\E[1m'
+ITALIC=$'\E[3m'
 NC=$'\E[0m'
 
 character_separator="§"
@@ -309,11 +310,19 @@ get_highlight_color() {
     filepath=$1
 
     # header files
-    if [[ "$filepath" == *".h" ||"$filepath" == *".H" ||"$filepath" == *".hpp" ||"$filepath" == *".HPP" ]]; then
-        echo "$HEADER_COLOR"
+    if [[ "$filepath" == *".h" ||"$filepath" == *".H" || "$filepath" == *".hh" || "$filepath" == *".HH" ||"$filepath" == *".hpp" ||"$filepath" == *".HPP" ]]; then
+        if [[ "$filepath" == *"test"* || "$filepath" == *"tst"* ]]; then # specific condition, to be adapted as needed
+            echo "$HEADER_COLOR$ITALIC"
+        else
+            echo "$HEADER_COLOR"
+        fi
     # source files
     elif [[ "$filepath" == *".c" ||"$filepath" == *".C" ||"$filepath" == *".cpp" ||"$filepath" == *".CPP" || "$filepath" == *".java" || "$filepath" == *".JAVA" ]]; then
-        echo "$SOURCE_COLOR"
+        if [[ "$filepath" == *"test"* || "$filepath" == *"tst"* ]]; then # specific condition, to be adapted as needed
+            echo "$SOURCE_COLOR$ITALIC"
+        else
+            echo "$SOURCE_COLOR"
+        fi
     # other files
     else
         echo "$OTHER_COLOR"

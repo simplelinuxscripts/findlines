@@ -27,7 +27,7 @@ need of complex regular expressions.
 
 ### EXAMPLES:
 
-  `fl str`  
+ `fl str`  
    => find all lines containing str in all files of current folder and its subfolders  
  `fl .c str`  
    => find all lines containing str in the .c files of current folder and its subfolders  

@@ -311,14 +311,14 @@ get_highlight_color() {
 
     # header files
     if [[ "$filepath" == *".h" ||"$filepath" == *".H" || "$filepath" == *".hh" || "$filepath" == *".HH" ||"$filepath" == *".hpp" ||"$filepath" == *".HPP" ]]; then
-        if [[ "$filepath" == *"test"* || "$filepath" == *"tst"* ]]; then # specific condition, to be adapted as needed
+        if [[ "$filepath" == *"test"* || "$filepath" == *"tst"* ]]; then # specific condition, to be adapted as needed (with this default condition, test files are displayed in italic)
             echo "$HEADER_COLOR$ITALIC"
         else
             echo "$HEADER_COLOR"
         fi
     # source files
     elif [[ "$filepath" == *".c" ||"$filepath" == *".C" ||"$filepath" == *".cpp" ||"$filepath" == *".CPP" || "$filepath" == *".java" || "$filepath" == *".JAVA" ]]; then
-        if [[ "$filepath" == *"test"* || "$filepath" == *"tst"* ]]; then # specific condition, to be adapted as needed
+        if [[ "$filepath" == *"test"* || "$filepath" == *"tst"* ]]; then # specific condition, to be adapted as needed (with this default condition, test files are displayed in italic)
             echo "$SOURCE_COLOR$ITALIC"
         else
             echo "$SOURCE_COLOR"

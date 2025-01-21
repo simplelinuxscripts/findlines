@@ -36,20 +36,24 @@ included_names_list=""
 excluded_names_list=""
 print0_option=""
 for arg in "$@"; do
-  if [[ "$arg" == "-print0" ]]; then
-    print0_option="-print0 "
-  # path exclusion
-  elif [[ $arg == /* ]]; then
-    name=$(echo $arg | tail -c +2)
-    excluded_names_list="$excluded_names_list! -ipath \"*$name*\" "
-  # path inclusion
-  else
-    if [[ $included_names_list == "" ]]; then
-        included_names_list="$included_names_list-ipath \"*$arg*\" "
-    else
-        included_names_list="$included_names_list-o -ipath \"*$arg*\" "
+    file_suffix_str="*"
+    if echo "$arg" | grep -q "\."; then
+        file_suffix_str=""
     fi
-  fi
+    if [[ "$arg" == "-print0" ]]; then
+        print0_option="-print0 "
+    # path exclusion
+    elif [[ $arg == /* ]]; then
+        name=$(echo $arg | tail -c +2)
+        excluded_names_list="$excluded_names_list! -ipath \"*$name$file_suffix_str\" "
+    # path inclusion
+    else
+        if [[ $included_names_list == "" ]]; then
+            included_names_list="$included_names_list-ipath \"*$arg$file_suffix_str\" "
+        else
+            included_names_list="$included_names_list-o -ipath \"*$arg$file_suffix_str\" "
+        fi
+    fi
 done
 if [[ $included_names_list != "" ]]; then
     included_names_list="\( $included_names_list\) "
@@ -57,9 +61,11 @@ fi
 
 if [[ "$print0_option" == "" ]]; then
     search_command="find . -type f $included_names_list$excluded_names_list"
+    # echo "search_command=$search_command"
     eval $search_command| sed 's|^\./||' | nl -w 1 -s ' ' | sed -E 's/^([0-9]+)/\x1b[33m\1\x1b[0m/'
 else
     search_command="find . -type f $included_names_list$excluded_names_list$print0_option"
+    # echo "search_command=$search_command"
     eval $search_command
 fi
 
@@ -67,6 +73,6 @@ fi
 # - -exec option of linux find command is not used because xargs is much faster
 # - xargs -0 option is related to find -print0 last option
 # Examples:
-# find . -type f \( -ipath "*.c*" -o -ipath "*.h*" \) ! -ipath "*.cpp*" ! -ipath "*.hpp*" -print0 | xargs -0 ls -l
+# find . -type f \( -ipath "*.c" -o -ipath "*.h" \) ! -ipath "*.cpp" ! -ipath "*.hpp" -print0 | xargs -0 ls -l
 # is equivalent but much faster than
-# find . -type f \( -ipath "*.c*" -o -ipath "*.h*" \) ! -ipath "*.cpp*" ! -ipath "*.hpp*" -exec ls -l "{}" \;
+# find . -type f \( -ipath "*.c" -o -ipath "*.h" \) ! -ipath "*.cpp" ! -ipath "*.hpp" -exec ls -l "{}" \;

@@ -50,7 +50,7 @@ need of complex regular expressions.
  `fl -p=1 .c str1 + str2`  
    => find all 3 lines long paragraphs containing str1 and str2 in the .c files
       of current folder and its subfolders  
- `fl -p=1 .c str1 ++ str2 --str3`  
+ `fl -p=1 .c str1 ++ str2 -- str3`  
    => find all 3 lines long paragraphs containing str1 and then str2 and then not str3 
       in the .c files of current folder and its subfolders  
     ![image](https://github.com/simplelinuxscripts/findlines/blob/9ff03d9f8a1dc0d564a61585a9f4b95e053352bf/example_2.png)  

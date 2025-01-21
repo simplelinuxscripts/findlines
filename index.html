@@ -1,16 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>simple Linux scripts / find lines</title>
+  <meta name="title" content="simple Linux scripts / find lines">
+  <meta name="description" content="Find all lines or multi-line paragraphs containing a set of strings in filtered files of current folder and its subfolders, in a simple way for most common usage, without need of complex regular expressions">
+  <meta name="keywords" content="linux, grep, recursive, paragraphs, special characters, sh script">
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simple Linux scripts</title>
+
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-    .container { padding: 20px; } header { background: #333; color: white; padding: 10px; text-align: center; } main { margin: 20px 0; }
+    body { font-family:Segoe UI, SegoeUI, Arial, sans-serif; margin: 0; padding: 0; }
+    .container { padding: 20px; }
+    header { background: #333; color: white; padding: 10px; text-align: center; }
+    main { margin: 20px 0; }
   </style>
 </head>
 <body>
-  <header> <h1>Welcome to simple linux scripts GitHub page</h1> </header>
-  <div class="container"> <main> <h2>Find lines</h2>
-  <p>This is a simple GitHub Pages site.</p> </main> </div>
+  <header>
+    <h1>simple linux scripts / find lines</h1>
+  </header>
+  <div class="container">
+    <main> <h2>Find lines</h2>
+    <p>
+
+Find all lines or multi-line paragraphs containing a set of strings in filtered files of current folder and its subfolders, in a simple way for most common usage, without need of complex regular expressions.<br><br>
+
+<b>USAGE:</b><br>
+<code>fl [-i] [-p=N] [-w] [pathstr|/pathstr]* str [+|-|++|-- str]*</code><br><br>
+
+<b>DESCRIPTION:</b><br>
+
+The goal of this linux sh script is to simply and quickly display all the lines or multi-line paragraphs matching the str parameters in all the files being filtered by the pathstr parameters, see below examples.<br>
+Special characters (like *, +, |, :, ...) do not need to be escaped, they are searched directly as provided in the str parameters, which makes the usage very simple.<br>
+Binary files contents are also searched, so that as many matching lines as possible are displayed at the end and no occurrence is missed.<br><br>
+
+<b>OPTIONS:</b><br>
+
+-i: ignore lower/upper case during the search<br>
+-p=N: consider paragraphs of 2N+1 lines during the search (N >= 1) instead of line by line search (2N+1 = N lines before first str matching line + first str matching line + N lines after first str matching line)<br>
+-w: first str to find shall be a whole word (word-constituent characters are letters, digits and underscore)<br><br>
+
+<b>EXAMPLES:</b><br>
+
+<code>fl str</code><br>
+=> find all lines containing str in all files of current folder and its subfolders<br>
+<code>fl .c str</code><br>
+=> find all lines containing str in the .c files of current folder and its subfolders<br>
+<code>fl .c .h str1 + str2 - str3</code><br>
+=> find all lines containing str1 and str2 and not str3 in the .c or .h files of current folder and its subfolders<br>
+<code>fl .c .h str1 ++ str2 -- str3</code><br>
+=> find all lines containing str1 and then str2 and then not str3 in the .c or .h files of current folder and its subfolders<br>
+<img src="example_1.png" style="width:64em;height: auto"><br>
+<code>fl mypathstr str</code><br>
+=> find all lines containing str in the files of current folder and its subfolders whose path contains "mypathstr" ("mypathstr" in file or folder names)<br>
+<code>fl .c /mypathstr str</code><br>
+=> find all lines containing str in the .c files of current folder and its subfolders whose path does not contain "mypathstr" ("mypathstr" not in file and folder names)<br>
+<code>fl -i .c str</code><br>
+=> find all lines containing str in the .c files of current folder and its subfolders with lower/upper case ignored<br>
+<code>fl -p=1 .c str1 + str2</code><br>
+=> find all 3 lines long paragraphs containing str1 and str2 in the .c files of current folder and its subfolders<br>
+<code>fl -p=1 .c str1 ++ str2 -- str3</code><br>
+=> find all 3 lines long paragraphs containing str1 and then str2 and then not str3 in the .c files of current folder and its subfolders<br>
+<img src="example_2.png" style="width:64em;height: auto"><br>
+<code>fl -w .c str</code><br>
+=> find all lines containing the whole word "str" in the .c files of current folder and its subfolders<br><br>
+
+Of course, all operators +/-/++/-- and all options -i/-p=N/-w can be used jointly.<br><br>
+
+Examples of searches with special characters:<br>
+- Special characters can be searched directly, for example <code>fl "(a*b+[(x/y)-z] || d == e & f)"</code> will search exactly this string without need to escape the special characters.<br>
+- For linux shell's special characters \ and $, they shall be escaped with \\ and \$ respectively, for example <code>fl "\\xxx\$"</code> will search all lines containing "\xxx$" in all files.<br>
+- Special characters can also be searched directly with their ASCII code, for example <code>fl $'\x09'</code> will search all lines containing tab characters (\t) in all files.<br><br>
+
+<b>HOW TO GET THIS SH SCRIPT?</b><br>
+&#x1F449; To get this sh script, go to GitHub project page:<br>
+<a href="https://github.com/simplelinuxscripts/findlines">https://github.com/simplelinuxscripts/findlines</a><br>
+
+    </p>
+    </main>
+  </div>
 </body>

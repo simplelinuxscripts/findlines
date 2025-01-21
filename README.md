@@ -36,8 +36,7 @@ need of complex regular expressions.
       of current folder and its subfolders  
  `fl .c .h str1 ++ str2 -- str3`  
    => find all lines containing str1 and then str2 and then not str3 in the .c or .h files
-      of current folder and its subfolders  
-   ![image](https://github.com/simplelinuxscripts/findlines/blob/9ff03d9f8a1dc0d564a61585a9f4b95e053352bf/example_1.png)  
+      of current folder and its subfolders    
  `fl mypathstr str`  
    => find all lines containing str in the files of current folder and its subfolders
       whose path contains "mypathstr" ("mypathstr" in file or folder names)  
@@ -53,7 +52,6 @@ need of complex regular expressions.
  `fl -p=1 .c str1 ++ str2 -- str3`  
    => find all 3 lines long paragraphs containing str1 and then str2 and then not str3 
       in the .c files of current folder and its subfolders  
-    ![image](https://github.com/simplelinuxscripts/findlines/blob/9ff03d9f8a1dc0d564a61585a9f4b95e053352bf/example_2.png)  
  `fl -w .c str`  
    => find all lines containing the whole word "str" in the .c files of current folder
       and its subfolders  
@@ -68,3 +66,9 @@ need of complex regular expressions.
    respectively, for example `fl "\\xxx\$"` will search all lines containing "\\xxx\$" in all files.  
  \- Special characters can also be searched directly with their ASCII code, for example
    `fl $'\x09'` will search all lines containing tab characters (\t) in all files.
+
+Practical examples:  
+![image](https://github.com/simplelinuxscripts/findlines/blob/9ff03d9f8a1dc0d564a61585a9f4b95e053352bf/example_1.png)
+
+![image](https://github.com/simplelinuxscripts/findlines/blob/9ff03d9f8a1dc0d564a61585a9f4b95e053352bf/example_2.png)  
+

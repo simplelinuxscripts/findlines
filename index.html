@@ -5,7 +5,7 @@
   <title>simple linux scripts / find lines</title>
   <meta name="title" content="simple linux scripts / find lines">
   <meta name="description" content="Find all lines or multi-line paragraphs containing a set of strings in filtered files of current folder and its subfolders, in a simple way for most common usage, without need of complex regular expressions">
-  <meta name="keywords" content="linux, find lines, grep, recursive, paragraphs, special characters, sh script">
+  <meta name="keywords" content="linux, find lines, grep, recursive, paragraphs, special characters, bash script">
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -31,7 +31,7 @@ Find all lines or multi-line paragraphs containing a set of strings in filtered 
 
 <b>DESCRIPTION:</b><br>
 
-The goal of this linux sh script is to simply and quickly display all the lines or multi-line paragraphs matching the str parameters in all the files being filtered by the pathstr parameters, see below examples.<br>
+The goal of this linux bash script is to simply and quickly display all the lines or multi-line paragraphs matching the str parameters in all the files being filtered by the pathstr parameters, see below examples.<br>
 Special characters (like *, +, |, :, ...) do not need to be escaped, they are searched directly as provided in the str parameters, which makes the usage very simple.<br>
 Binary files contents are also searched, so that as many matching lines as possible are displayed at the end and no occurrence is missed.<br><br>
 
@@ -51,7 +51,6 @@ Binary files contents are also searched, so that as many matching lines as possi
 => find all lines containing str1 and str2 and not str3 in the .c or .h files of current folder and its subfolders<br>
 <code>fl .c .h str1 ++ str2 -- str3</code><br>
 => find all lines containing str1 and then str2 and then not str3 in the .c or .h files of current folder and its subfolders<br>
-<img src="example_1.png" style="width:64em;height: auto"><br>
 <code>fl mypathstr str</code><br>
 => find all lines containing str in the files of current folder and its subfolders whose path contains "mypathstr" ("mypathstr" in file or folder names)<br>
 <code>fl .c /mypathstr str</code><br>
@@ -62,7 +61,6 @@ Binary files contents are also searched, so that as many matching lines as possi
 => find all 3 lines long paragraphs containing str1 and str2 in the .c files of current folder and its subfolders<br>
 <code>fl -p=1 .c str1 ++ str2 -- str3</code><br>
 => find all 3 lines long paragraphs containing str1 and then str2 and then not str3 in the .c files of current folder and its subfolders<br>
-<img src="example_2.png" style="width:64em;height: auto"><br>
 <code>fl -w .c str</code><br>
 => find all lines containing the whole word "str" in the .c files of current folder and its subfolders<br><br>
 
@@ -73,9 +71,13 @@ Examples of searches with special characters:<br>
 - For linux shell's special characters \ and $, they shall be escaped with \\ and \$ respectively, for example <code>fl "\\xxx\$"</code> will search all lines containing "\xxx$" in all files.<br>
 - Special characters can also be searched directly with their ASCII code, for example <code>fl $'\x09'</code> will search all lines containing tab characters (\t) in all files.<br><br>
 
-<b>HOW TO GET THIS SH SCRIPT:</b><br>
-&#x1F449; To get this <code>fl</code> sh script, go to GitHub project page:<br>
-<a href="https://github.com/simplelinuxscripts/findlines">https://github.com/simplelinuxscripts/findlines</a><br>
+Practical examples:<br>
+<img src="example_1.png" style="width:64em;height: auto"><br><br>
+<img src="example_2.png" style="width:64em;height: auto"><br><br>
+
+<b>HOW TO GET THIS BASH SCRIPT:</b><br>
+&#x1F449; To get this <code>fl</code> bash script, go to GitHub project page:<br>
+<b><a href="https://github.com/simplelinuxscripts/findlines">https://github.com/simplelinuxscripts/findlines</a></b><br>
 
     </p>
     </main>

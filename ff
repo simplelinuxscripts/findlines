@@ -37,7 +37,7 @@ excluded_names_list=""
 print0_option=""
 for arg in "$@"; do
     file_suffix_str="*"
-    if echo "$arg" | grep -q "\."; then
+    if [[ "$arg" == "."* ]]; then
         file_suffix_str=""
     fi
     if [[ "$arg" == "-print0" ]]; then

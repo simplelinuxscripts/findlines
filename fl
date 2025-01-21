@@ -309,23 +309,21 @@ gather_paragraph_lines() {
 get_highlight_color() {
     filepath=$1
 
-    # header files
-    if [[ "$filepath" == *".h" ||"$filepath" == *".H" || "$filepath" == *".hh" || "$filepath" == *".HH" ||"$filepath" == *".hpp" ||"$filepath" == *".HPP" ]]; then
-        if [[ "$filepath" == *"test"* || "$filepath" == *"tst"* ]]; then # specific condition, to be adapted as needed (with this default condition, test files are displayed in italic)
-            echo "$HEADER_COLOR$ITALIC"
-        else
-            echo "$HEADER_COLOR"
-        fi
+    # specific formatting, to be adapted as needed (with below condition, test files will be displayed in italic)
+    specific_formatting=""
+    if [[ "$filepath" == *"test"* || "$filepath" == *"tst"* ]]; then
+        specific_formatting="$ITALIC"
+    fi
+
     # source files
-    elif [[ "$filepath" == *".c" ||"$filepath" == *".C" ||"$filepath" == *".cpp" ||"$filepath" == *".CPP" || "$filepath" == *".java" || "$filepath" == *".JAVA" ]]; then
-        if [[ "$filepath" == *"test"* || "$filepath" == *"tst"* ]]; then # specific condition, to be adapted as needed (with this default condition, test files are displayed in italic)
-            echo "$SOURCE_COLOR$ITALIC"
-        else
-            echo "$SOURCE_COLOR"
-        fi
+    if [[ "$filepath" == *".c" ||"$filepath" == *".C" ||"$filepath" == *".cpp" ||"$filepath" == *".CPP" || "$filepath" == *".cc" ||"$filepath" == *".CC" || "$filepath" == *".cxx" ||"$filepath" == *".CXX" || "$filepath" == *".cs" ||"$filepath" == *".CS" || "$filepath" == *".java" || "$filepath" == *".JAVA" || "$filepath" == *".m" || "$filepath" == *".M" ]]; then
+        echo "$SOURCE_COLOR$specific_formatting"
+    # header files
+    elif [[ "$filepath" == *".h" ||"$filepath" == *".H" || "$filepath" == *".hh" || "$filepath" == *".HH" ||"$filepath" == *".hpp" ||"$filepath" == *".HPP" ||"$filepath" == *".hxx" ||"$filepath" == *".HXX" ]]; then
+        echo "$HEADER_COLOR$specific_formatting"
     # other files
     else
-        echo "$OTHER_COLOR"
+        echo "$OTHER_COLOR$specific_formatting"
     fi
 }
 

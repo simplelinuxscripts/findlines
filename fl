@@ -927,8 +927,8 @@ unit_tests() {
     res=$(echo "./a/b/c/file name *+ ~|()!?:456:.hpp:123: aBc -- 78 " | format_output "--" "" "" 0);
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name *+ ~|()!?:456${NC}\t.hpp:123: aBc ${OTHER_COLOR}--${NC} 78")
     check_test_condition "$res" "$exp" $((test_idx++))
-    res=$(echo "./a/b/c/file name *+ ~|()!?:12a:abc:456:.hpp:123: aBc -- 78 " | format_output "--" "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name *+ ~|()!?:12a:abc:456${NC}\t.hpp:123: aBc ${OTHER_COLOR}--${NC} 78")
+    res=$(echo "./a/b/c/file name *+ ~|()!?:-123-a:abc:456:.hpp:123: aBc -- 78 " | format_output "--" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name *+ ~|()!?:-123-a:abc:456${NC}\t.hpp:123: aBc ${OTHER_COLOR}--${NC} 78")
     check_test_condition "$res" "$exp" $((test_idx++))
     
     test_idx=600

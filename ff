@@ -2,33 +2,34 @@
 
 ###############################################################################################
 #
-# Find files in current folder and its subfolders according to some simple naming criteria
+# Find files of current folder and its subfolders according to simple naming criteria
 #
 # USAGE:
-# ff [-print0] [pathstr|/pathstr]*
+#  ff [-print0] [pathstr|/pathstr]*
 #
 # EXAMPLES:
-#   ff str
-#     => list all files whose name or relative path contains str
-#   ff .c .h
-#     => list all files whose name or relative path contains .c or .h
-#   ff .c .h /.cpp /.hpp
-#     => list all files whose name or relative path contains .c or .h and not .cpp and not .hpp
-#   ff make/
-#     => list all files whose relative path contains make/ (pathstr/ includes,
-#        /pathstr would exclude)
-#   ff -print0 .c .h | xargs -0 ls -l
-#     => list all files whose name or relative path contains .c or .h and allow
-#        further processing with xargs -0 (useful for paths containing spaces)
+#  ff .c .h
+#    => find the .c or .h files of current folder and its subfolders
+#  ff mypathstr
+#    => find the files of current folder and its subfolders
+#      whose path contains "mypathstr" ("mypathstr" in file or folder names)
+#  ff .c .h /mypathstr
+#    => find the .c or .h files of current folder and its subfolders
+#       whose path does not contain "mypathstr" ("mypathstr" not in file and folder names)
+#  ff -print0 .c .h | xargs -0 ls -l
+#    => find the .c or .h files of current folder and its subfolders 
+#       and allow further processing with xargs -0 (useful for paths containing spaces)
 #
-# Examples with file names or paths containing some special characters:
-#   regexp search: ff "*xxx*cpp"
-#   star: ff "\*"
-#   plus: ff "+" or ff +
-#   space: ff " x "
-#   parenthesis: ff "(x)"
-#   tilde: ff "~"
-#   pipe: ff "|"
+#  Examples of searches with regular expressions or special characters:
+#  regexp search with *: ff "xxx*yyy"
+#  regexp search with ?: ff "xxx?yyy"
+#  * in paths: ff "xxx\*yyy"
+#  ? in paths: ff "xxx\?yyy"
+#  space in paths: ff " xxx "
+#  plus in paths: ff "xxx+yyy"
+#  parenthesis in paths: ff "(xxx)"
+#  tilde in paths: ff "xxx~yyy"
+#  pipe in paths: ff "xxx|yyy"
 #
 ###############################################################################################
 
@@ -37,7 +38,7 @@ excluded_names_list=""
 print0_option=""
 for arg in "$@"; do
     file_suffix_str="*"
-    if [[ "$arg" == "."* ]]; then
+    if [[ "$arg" == "."* || "$arg" == "/."* ]]; then
         file_suffix_str=""
     fi
     if [[ "$arg" == "-print0" ]]; then

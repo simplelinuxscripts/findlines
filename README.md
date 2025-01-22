@@ -1,4 +1,4 @@
-Find all lines or multi-line paragraphs containing a set of strings in filtered files
+Linux bash script to find all lines or multi-line paragraphs containing a set of strings in filtered files
 of current folder and its subfolders, in a simple way for most common usage, without
 need of complex regular expressions.
 

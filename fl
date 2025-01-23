@@ -1100,7 +1100,7 @@ for arg in "$@"; do
                 ((nb_options++))
                 is_option=1
             fi
-        elif [[ $arg == -unit_tests ]]; then
+        elif [[ $arg == -unit-tests ]]; then
             unit_tests
             exit 0
         fi

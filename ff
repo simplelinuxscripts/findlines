@@ -61,7 +61,7 @@ if [[ $included_names_list != "" ]]; then
 fi
 
 if [[ "$print0_option" == "" ]]; then
-    search_command="find . -type f $included_names_list$excluded_names_list"
+    search_command="find . -type f $included_names_list$excluded_names_list-print0 | xargs -0 ls -l"
     # echo "search_command=$search_command"
     eval $search_command| sed 's|^\./||' | nl -w 1 -s ' ' | sed -E 's/^([0-9]+)/\x1b[33m\1\x1b[0m/'
 else

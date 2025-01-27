@@ -33,6 +33,9 @@
 #
 ###############################################################################################
 
+BOLD=$'\E[1m'
+NC=$'\E[0m'
+
 included_names_list=""
 excluded_names_list=""
 print0_option=""
@@ -63,7 +66,7 @@ fi
 if [[ "$print0_option" == "" ]]; then
     search_command="find . -type f $included_names_list$excluded_names_list-print0 | xargs -0 ls -l"
     # echo "search_command=$search_command"
-    eval $search_command| sed 's|^\./||' | nl -w 1 -s ' ' | sed -E 's/^([0-9]+)/\x1b[33m\1\x1b[0m/'
+    eval $search_command| sed 's|^\./||' | nl -w 1 -s ' ' | sed -E "s|^([0-9]+)|\x1b[33m\1${NC}|" | sed -E "s|(./.*)$|${BOLD}\1${NC}|"
 else
     search_command="find . -type f $included_names_list$excluded_names_list$print0_option"
     # echo "search_command=$search_command"

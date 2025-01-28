@@ -930,7 +930,7 @@ unit_tests() {
     res=$(echo "./a/b/c/file name *+ ~|()!?:-123-a:abc:456:.hpp:123: aBc -- 78 " | format_output "--" "" "" 0);
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name *+ ~|()!?:-123-a:abc:456${NC}\t.hpp:123: aBc ${OTHER_COLOR}--${NC} 78")
     check_test_condition "$res" "$exp" $((test_idx++))
-    
+
     test_idx=600
     # (word case)
     res=$(echo "./a/b/c/file name.cpp:123:ABc xABC _ABC abc ABCy ABC_ zaBCt ,ABC, (ABC) ;ABC; ABC" | format_output "Abc" "$grep_ignorecase_option" "$grep_word_option" 0);

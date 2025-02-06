@@ -16,9 +16,9 @@
 #  ff .c .h /mypathstr
 #    => find the .c or .h files of current folder and its subfolders
 #       whose path does not contain "mypathstr" ("mypathstr" not in file and folder names)
-#  ff -print0 .c .h | xargs -0 ls -l
+#  ff -print0 .c .h | xargs -0 -r ls -l
 #    => find the .c or .h files of current folder and its subfolders
-#       and allow further processing with xargs -0 (useful for paths containing spaces)
+#       and allow further processing with xargs -0 -r (useful for paths containing spaces)
 #
 #  Examples of searches with regular expressions or special characters:
 #  regexp search with *: ff "xxx*yyy"
@@ -64,7 +64,7 @@ if [[ $included_names_list != "" ]]; then
 fi
 
 if [[ "$print0_option" == "" ]]; then
-    search_command="find . -type f $included_names_list$excluded_names_list-print0 | xargs -0 ls -l"
+    search_command="find . -type f $included_names_list$excluded_names_list-print0 | xargs -0 -r ls -l"
     # echo "search_command=$search_command"
     eval $search_command | nl -w 1 -s ' ' | sed -E "s|^([0-9]+)|\x1b[33m\1${NC}|" | sed -E "s|(./.*)$|${BOLD}\1${NC}|" | sed "s|\./||"
 else
@@ -77,6 +77,6 @@ fi
 # - -exec option of linux find command is not used because xargs is much faster
 # - xargs -0 option is related to find -print0 last option
 # Examples:
-# find . -type f \( -ipath "*.c" -o -ipath "*.h" \) ! -ipath "*.cpp" ! -ipath "*.hpp" -print0 | xargs -0 ls -l
+# find . -type f \( -ipath "*.c" -o -ipath "*.h" \) ! -ipath "*.cpp" ! -ipath "*.hpp" -print0 | xargs -0 -r ls -l
 # is equivalent but much faster than
 # find . -type f \( -ipath "*.c" -o -ipath "*.h" \) ! -ipath "*.cpp" ! -ipath "*.hpp" -exec ls -l "{}" \;

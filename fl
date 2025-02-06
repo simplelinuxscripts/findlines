@@ -311,7 +311,7 @@ get_highlight_color() {
 
     # specific formatting, to be adapted as needed (with below condition, test files will be displayed in italic)
     specific_formatting=""
-    if [[ "$filepath" == *"test"* || "$filepath" == *"tst"* ]]; then
+    if [[ "$filepath" == *"test"* || "$filepath" == *"Test"* || "$filepath" == *"TEST"* || "$filepath" == *"tst"* ]]; then
         specific_formatting="$ITALIC"
     fi
 

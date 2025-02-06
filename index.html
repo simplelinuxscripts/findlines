@@ -2,10 +2,9 @@
 <html lang="en">
 <head>
   <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-  <title>simple linux scripts / find lines</title>
-  <meta name="title" content="simple linux scripts / find lines">
-  <meta name="description" content="Linux bash script to find all lines or multi-line paragraphs containing a set of strings in filtered files of current folder and its subfolders, in a simple way for most common usage, without need of complex regular expressions">
-  <meta name="keywords" content="linux, find lines, paragraphs, special characters, binary, bash script, recursive grep">
+  <title>Find lines recursively</title>
+  <meta name="title" content="Find lines recursively">
+  <meta name="keywords" content="linux, bash script, find, lines, paragraphs, special characters, binary, recursive">
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -18,20 +17,20 @@
 </head>
 <body>
   <header>
-    <h1>simple linux scripts / find&nbsp;lines</h1>
+    <h1>simple linux scripts / find&nbsp;lines recursively</h1>
   </header>
   <div class="container">
-    <main> <h2>find lines</h2>
+    <main>
     <p>
 
-Linux bash script to find all lines or multi-line paragraphs containing a set of strings in filtered files of current folder and its subfolders, in a simple way for most common usage, without need of complex regular expressions.<br><br>
+Linux bash script to find all lines or multi-line paragraphs containing a set of strings in filtered files within current folder and its subfolders recursively, in a simple way for most common usage, without need of complex regular expressions.<br><br>
 
 <b>USAGE:</b><br>
 <code>fl [-i] [-p=N] [-w] [pathstr|/pathstr]* str [+|-|++|-- str]*</code><br><br>
 
 <b>DESCRIPTION:</b><br>
 
-The goal of this linux bash script is to simply and quickly display all the lines or multi-line paragraphs matching the str parameters in all the files being filtered by the pathstr parameters, see below examples.<br>
+The goal of this linux bash script (fl) is to simply and quickly display all the lines or multi-line paragraphs matching the str parameters in all the files being filtered by the pathstr parameters, see below examples.<br>
 Special characters (like *, +, |, :, ...) do not need to be escaped, they are searched directly as provided in the str parameters, which makes the usage very simple.<br>
 Binary files contents are also searched, so that as many matching lines as possible are displayed at the end and no occurrence is missed.<br><br>
 

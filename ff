@@ -18,7 +18,7 @@
 #       whose path does not contain "mypathstr" ("mypathstr" not in file and folder names)
 #  ff -print0 .c .h | xargs -0 -r ls -l
 #    => find the .c or .h files of current folder and its subfolders
-#       and allow further processing with xargs -0 -r (useful for paths containing spaces)
+#       and allow further processing with xargs -0 (useful for paths containing spaces)
 #
 #  Examples of searches with regular expressions or special characters:
 #  regexp search with *: ff "xxx*yyy"

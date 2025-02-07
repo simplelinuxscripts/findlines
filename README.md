@@ -1,5 +1,5 @@
 Linux bash script to find all lines or multi-line paragraphs containing a set of strings in filtered files
-within current folder and its subfolders recursively, in a simple way for most common usage, without
+of current folder and its subfolders recursively, in a simple way for most common usage, without
 need of complex regular expressions.
 
 ### USAGE:

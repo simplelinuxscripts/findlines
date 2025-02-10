@@ -33,8 +33,18 @@
 #
 ###############################################################################################
 
+RED_COLOR=$'\E[1m\E[4m\E[31m'
 BOLD=$'\E[1m'
 NC=$'\E[0m'
+
+# print error message
+printError() {
+    error_str=$1
+
+    echo -e -n "$RED_COLOR" >&2
+    echo -n "$error_str" >&2
+    echo -e "$NC" >&2
+}
 
 included_names_list=""
 excluded_names_list=""
@@ -42,6 +52,10 @@ print0_option=""
 for arg in "$@"; do
     file_suffix_str="*"
     if [[ "$arg" == "."* || "$arg" == "/."* ]]; then
+        # check if $arg contains '/' character
+        if [[ "$arg" == "."*/* || "$arg" == "/."*/* ]]; then
+            printError "error: $arg file suffix contains '/' character (classical example: to exclude .git folder files, use syntax //.git/"
+        fi
         file_suffix_str=""
     fi
     if [[ "$arg" == "-print0" ]]; then

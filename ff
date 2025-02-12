@@ -5,7 +5,7 @@
 # Find files of current folder and its subfolders according to simple naming criteria
 #
 # USAGE:
-#  ff [-print0] [-noformatting] [pathstr|/pathstr]*
+#  ff [-print0|-noformatting] [pathstr|/pathstr]*
 #
 # EXAMPLES:
 #  ff .c .h

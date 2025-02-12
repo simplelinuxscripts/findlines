@@ -5,7 +5,7 @@
 # Find files of current folder and its subfolders according to simple naming criteria
 #
 # USAGE:
-#  ff [-print0] [pathstr|/pathstr]*
+#  ff [-print0] [-noformatting] [pathstr|/pathstr]*
 #
 # EXAMPLES:
 #  ff .c .h
@@ -49,6 +49,7 @@ printError() {
 included_names_list=""
 excluded_names_list=""
 print0_option=""
+noformatting=0
 for arg in "$@"; do
     file_suffix_str="*"
     if [[ "$arg" == "."* || "$arg" == "/."* ]]; then
@@ -58,8 +59,11 @@ for arg in "$@"; do
         fi
         file_suffix_str=""
     fi
+    # options
     if [[ "$arg" == "-print0" ]]; then
         print0_option="-print0 "
+    elif [[ "$arg" == "-noformatting" ]]; then
+        noformatting=1
     # path exclusion
     elif [[ $arg == /* ]]; then
         name=$(echo $arg | tail -c +2)
@@ -78,9 +82,15 @@ if [[ $included_names_list != "" ]]; then
 fi
 
 if [[ "$print0_option" == "" ]]; then
-    search_command="find . -type f $included_names_list$excluded_names_list-print0 | xargs -0 -r ls -l"
-    # echo "search_command=$search_command"
-    eval $search_command | nl -w 1 -s ' ' | sed -E "s|^([0-9]+)|\x1b[33m\1${NC}|" | sed -E "s|(./.*)$|${BOLD}\1${NC}|" | sed "s|\./||"
+    if [[ $noformatting -eq 0 ]]; then # formatting
+        search_command="find . -type f $included_names_list$excluded_names_list-print0 | xargs -0 -r ls -l"
+        # echo "search_command=$search_command"
+        eval $search_command | nl -w 1 -s ' ' | sed -E "s|^([0-9]+)|\x1b[33m\1${NC}|" | sed -E "s|(./.*)$|${BOLD}\1${NC}|" | sed "s|\./||"
+    else # no formatting
+        search_command="find . -type f $included_names_list$excluded_names_list"
+        # echo "search_command=$search_command"
+        eval $search_command
+    fi
 else
     search_command="find . -type f $included_names_list$excluded_names_list$print0_option"
     # echo "search_command=$search_command"

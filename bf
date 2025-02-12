@@ -12,7 +12,6 @@
 ###################################################################################################
 
 RED_COLOR=$'\E[1m\E[4m\E[31m'
-YELLOW_COLOR=$'\E[1m\E[4m\E[33m'
 BOLD=$'\E[1m'
 NC=$'\E[0m'
 
@@ -88,56 +87,14 @@ else
     backup_str="to back up"
 fi
 
-display_size() {
-    size=$1
-
-    color_beg=""
-    color_end=""
-    if [[ $size -ge 25000000 ]]; then
-        color_beg="$RED_COLOR"
-        color_end="$NC"
-    elif [[ $size -ge 8000000 ]]; then
-        color_beg="$YELLOW_COLOR"
-        color_end="$NC"
-    fi
-
-    if [[ $size -lt 1000 ]]; then
-        echo "$color_beg${size} B$color_end"
-    elif [[ $size -lt 1000000 ]]; then
-        echo "$color_beg$((size/1000)) KB$color_end"
-    else
-        echo "$color_beg$((size/1000000)) MB$color_end"
-    fi
-
-}
-
-format_output() {
-    nb_files=0
-    total_size=0
-
-    # in this loop, "IFS=" avoids input lines being trimmed
-    while IFS= read -r input_str; do
-        if [ -f "$input_str" ]; then
-            file_size=$(ls -l "$input_str" | awk '{print $5}')
-            total_size=$((total_size + file_size))
-            echo -n "$input_str"
-            echo -e "\t$(display_size $file_size) / $(display_size $total_size)"
-            nb_files=$((nb_files + 1))
-        fi
-    done
-    if [[ $nb_files -eq 0 ]]; then
-        echo -e "${BOLD}no file $backup_str$NC"
-    elif [[ $nb_files -eq 1 ]]; then
-        echo "${BOLD}1 file $backup_str, $(display_size $total_size)$NC"
-    else
-        echo "${BOLD}$nb_files files $backup_str, $(display_size $total_size)$NC"
-    fi
-}
-
 SCRIPT_DIR=$(dirname "$0")
-search_command="$SCRIPT_DIR/ff -print0 $pathstrs_list_for_call| xargs -0 -I {} sh -c 'rsync -auR $dry_run_option--out-format="%n" \"{}\" \"$target_folder_for_call\"' | format_output"
-echo "search_command=$search_command"
-eval "$search_command"
+tmp_file="$SCRIPT_DIR/tmp_bf_list_of_files.txt"
+echo "list files..."
+$SCRIPT_DIR/ff -noformatting $pathstrs_list_for_call| sed 's|^\./||' > "$tmp_file"
+
+echo "compare..."
+tabs=$'\x09\x09'
+rsync -auRv $dry_run_option--out-format="%n${tabs}%l bytes" --stats --files-from="$tmp_file" . "$target_folder_for_call" | sed "/Number of deleted files:/s/.*/${BOLD}&${NC}/" | sed "/Number of regular files transferred:/s/.*/${BOLD}&${NC}/" | sed "/Total transferred file size:/s/.*/${BOLD}&${NC}/"
 
 echo
 echo "Do you want to compare current and backup folders? (Y/N)"

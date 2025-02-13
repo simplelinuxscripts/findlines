@@ -56,13 +56,22 @@ for arg in "$@"; do
         # check if $arg contains '/' character
         if [[ "$arg" == "."*/* || "$arg" == "/."*/* ]]; then
             printError "error: $arg file suffix contains '/' character (classical example: to exclude .git folder files, use syntax //.git/"
+            exit 1
         fi
         file_suffix_str=""
     fi
     # options
     if [[ "$arg" == "-print0" ]]; then
+        if ! [[ $noformatting -eq 0 ]]; then
+          printError "error: -print0 and -noformatting options shall not be used jointly"
+          exit 1
+        fi
         print0_option="-print0 "
     elif [[ "$arg" == "-noformatting" ]]; then
+        if ! [[ "$print0_option" == "" ]]; then
+          printError "error: -print0 and -noformatting options shall not be used jointly"
+          exit 1
+        fi
         noformatting=1
     # path exclusion
     elif [[ $arg == /* ]]; then

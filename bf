@@ -88,14 +88,9 @@ else
 fi
 
 SCRIPT_DIR=$(dirname "$0")
-tmp_file="$SCRIPT_DIR/tmp_bf_list_of_files.txt"
-echo "list files..."
 find_files_command="$SCRIPT_DIR/ff -noformatting $pathstrs_list_for_call"
-eval "$find_files_command" | sed 's|^\./||' > "$tmp_file"
-
-echo "compare..."
 tabs=$'\x09\x09'
-rsync -auR $dry_run_option--out-format="%n${tabs}%l bytes" --stats --files-from="$tmp_file" . "$target_folder_for_call" | grep -Ev '/\s*[0-9]+ bytes$' | sed "/Number of deleted files:/s/.*/${BOLD}&${NC}/" | sed "/Number of regular files transferred:/s/.*/${BOLD}&${NC}/" | sed "/Total transferred file size:/s/.*/${BOLD}&${NC}/"
+eval "$find_files_command" | sed 's|^\./||' | rsync -auR $dry_run_option--out-format="%n${tabs}%l bytes" --stats --files-from=- . "$target_folder_for_call" | grep -Ev '/\s*[0-9]+ bytes$' | sed "/Number of deleted files:/s/.*/${BOLD}&${NC}/" | sed "/Number of regular files transferred:/s/.*/${BOLD}&${NC}/" | sed "/Total transferred file size:/s/.*/${BOLD}&${NC}/"
 
 echo
 echo "Do you want to compare current and backup folders? (Y/N)"

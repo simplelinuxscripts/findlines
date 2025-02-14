@@ -66,8 +66,8 @@
    `fl $'\x09'` will search all lines containing tab characters (\t) in all files.
 
 Practical examples:  
-\- search of several strings (line by line):  
+\- search of several consecutive strings (line by line):  
 ![image](https://github.com/simplelinuxscripts/findlines/blob/9ff03d9f8a1dc0d564a61585a9f4b95e053352bf/example_1.png)
-\- search of several strings inside paragraphs:  
+\- search of several consecutive strings inside 3-line paragraphs:  
 ![image](https://github.com/simplelinuxscripts/findlines/blob/9ff03d9f8a1dc0d564a61585a9f4b95e053352bf/example_2.png)  
 

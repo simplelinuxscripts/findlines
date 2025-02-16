@@ -73,6 +73,8 @@
 # Constants
 ###########
 
+export LC_ALL=en_US.UTF-8
+
 MAX_ABBREVIATION_LEN=80
 MAX_LEN_FOR_LINE_SPLIT=180
 
@@ -99,7 +101,7 @@ abbreviation_str="$BOLD [...] $NC"
 
 # print error message
 printError() {
-    error_str=$1
+    local error_str=$1
 
     echo -e -n "$ERROR_COLOR" >&2
     echo -n "$error_str" >&2
@@ -108,13 +110,13 @@ printError() {
 
 # get first character index of a substring in a string, or -1 if the substring is not found
 indexOf() {
-    str=$1
-    substr=$2
-    grep_ignorecase_option_p=$3
-    grep_word_option_p=$4
+    local str=$1
+    local substr=$2
+    local grep_ignorecase_option_p=$3
+    local grep_word_option_p=$4
 
     # get offset of substr in str in bytes, using the same grep command and options as in main search to keep full compatibility between search and formatting
-    byte_idx=$(echo "$str" | grep -E --text -o -b $grep_ignorecase_option_p $grep_word_option_p -- "$substr" | grep -o -E '[0-9]+' | head -n 1)
+    byte_idx=$(grep -E --text -o -b $grep_ignorecase_option_p $grep_word_option_p -- "$substr" <<< "$str" | grep -o -E '[0-9]+' | head -n 1)
     if [[ "$byte_idx" == "" ]]; then
         echo -1
     else
@@ -127,9 +129,9 @@ indexOf() {
 
 # extract a substring from a string
 substring() {
-    str=$1
-    start_char_idx=$2 # (start index is included)
-    end_char_idx=$3 # (end index is excluded - can be larger than string length)
+    local str=$1
+    local start_char_idx=$2 # (start index is included)
+    local end_char_idx=$3 # (end index is excluded - can be larger than string length)
 
     if [[ $end_char_idx -lt $start_char_idx ]]; then
         printError "substring error: invalid parameters #1 ($start_char_idx, $end_char_idx)"
@@ -145,19 +147,19 @@ substring() {
 
 # trim a string
 trim() {
-    str=$1
+    local str=$1
 
     tmp_str=$(echo "$str" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     echo "$tmp_str"
 }
 left_trim() {
-    str=$1
+    local str=$1
 
     tmp_str=$(echo "$str" | sed 's/^[[:space:]]*//')
     echo "$tmp_str"
 }
 right_trim() {
-    str=$1
+    local str=$1
 
     tmp_str=$(echo "$str" | sed 's/[[:space:]]*$//')
     echo "$tmp_str"
@@ -165,7 +167,7 @@ right_trim() {
 
 # display spaces
 display_spaces() {
-    nb_spaces=$1
+    local nb_spaces=$1
 
     spaces_str=$(printf "%${nb_spaces}s")
     echo "$spaces_str"
@@ -173,7 +175,7 @@ display_spaces() {
 
 # abbreviate long strings
 abbreviate() {
-    str=$1
+    local str=$1
 
     length=${#str}
     if [[ $length -gt $((MAX_ABBREVIATION_LEN * 2 + 10)) ]]; then
@@ -190,19 +192,15 @@ abbreviate() {
 
 # check if a string contains non printable characters (binary line detection)
 contains_non_printable_characters() {
-    str=$1
+    local str=$1
 
     # Check presence of NULL characters (\x00), necessary to avoid "warning: command substitution: ignored null byte in input"
     # Note: non-ASCII characters (<=> command "grep -qE $'[^\x01-\x7F]';") are multi-byte and are supported by this script so are not considered as non printable
-    if echo "$str" | grep -qE "\x00"; then
+    if [[ "$str" == *"\x00"* ]]; then
         echo 1
     else
-        # Notes:
-        # - ignore \r characters (aka Ctrl+M or "carriage return" characters = \x0D in ASCII, typically present in Windows files)
-        # - \"...\" below avoids errors like "printf: -a: invalid option"
-        # - 2>&1 below avoids errors due to some special characters like: "printf: `▒': invalid format character"
-        # - below regular expression matches any character except [:print:], [:blank:] and \x0D
-        if printf "%s" "\"$str\"" 2>&1 | grep --text -qE $'[^[:print:][:blank:]\x0D]|: invalid format character'; then
+        # Note: ignore \r characters (aka Ctrl+M or "carriage return" characters = \x0D in ASCII, typically present in Windows files)
+        if [[ "$str" =~ [^[:print:][:blank:]\x0D] ]]; then
           echo 1
         else
           echo 0
@@ -212,17 +210,17 @@ contains_non_printable_characters() {
 
 # escape special characters as needed by grep -E commmand
 escape_special_chars() {
-    str=$1
+    local str=$1
 
     echo "$str" | sed 's/\\/\\\\/g' | sed 's/\[/\\[/g' | sed 's/\]/\\]/g' | sed 's/+/\\+/g' | sed 's/(/\\(/g' | sed 's/)/\\)/g' | sed 's/{/\\{/g' | sed 's/}/\\}/g' | sed 's/\./\\./g' | sed 's/\^/\\^/g' | sed 's/\$/\\$/g' | sed 's/\?/\\?/g' |  sed 's/!/\\!/g' | sed 's/|/\\|/g' | sed 's/\*/\\*/g' | sed 's/-/\\-/g'
 }
 
 # check if 2 strings are "correlated"
 correlated_strings() {
-    str1_p=$1
-    str2_p=$2
-    ignorecase_p=$3
-    word_for_str1_p=$4
+    local str1_p=$1
+    local str2_p=$2
+    local ignorecase_p=$3
+    local word_for_str1_p=$4
 
     if [[ $ignorecase_p -eq 0 ]]; then
         if [[ $word_for_str1_p -eq 0  ]]; then
@@ -307,7 +305,7 @@ gather_paragraph_lines() {
 
 # get highlight color for a given file
 get_highlight_color() {
-    filepath=$1
+    local filepath=$1
 
     # specific formatting, to be adapted as needed (with below condition, test files will be displayed in italic)
     specific_formatting=""
@@ -329,10 +327,10 @@ get_highlight_color() {
 
 # format output
 format_output() {
-    searched_str_p=$1
-    grep_ignorecase_option_p=$2
-    grep_word_option_p=$3
-    paragraph_size_p=$4
+    local searched_str_p=$1
+    local grep_ignorecase_option_p=$2
+    local grep_word_option_p=$3
+    local paragraph_size_p=$4
 
     if ! [[ "$paragraph_size_p" =~ ^[0-9]+$ ]]; then
         printError "format_output error: paragraph size \"$paragraph_size_p\" is not a number"
@@ -358,14 +356,14 @@ format_output() {
 
         # input_str format is ./xxx/yyy/zzz.txt:123:line_contents or ./xxx/yyy/zzz.txt-123-line_contents (possible in paragraph mode)
         # Note: echo instead of printf as non printable characters were not checked yet (echo will not fail due to special characters)
-        filepath_and_line_number_str=$(echo "$input_str" | grep --text -o -P "^\./.*?:[0-9]+:") # Perl regexp is used for non-greedy mode (not supported by Extended Regular Expressions with grep -E)
+        filepath_and_line_number_str=$(grep --text -o -P "^\./.*?:[0-9]+:" <<< "$input_str") # Perl regexp is used for non-greedy mode (not supported by Extended Regular Expressions with grep -E)
         filepath_and_line_number_length=${#filepath_and_line_number_str}
         if [[ $filepath_and_line_number_length -ne 0 ]]; then
-            line_number_str=$(echo "$filepath_and_line_number_str" | grep -o -E ":[0-9]+:$")
+            line_number_str=$(grep -o -E ":[0-9]+:$" <<< "$filepath_and_line_number_str")
             filepath=$(substring "$filepath_and_line_number_str" 0 $((filepath_and_line_number_length - ${#line_number_str})))
             skip_occurrence_number_display=0
         elif [[ $paragraph_size_p -ne 0 ]]; then
-            filepath_and_line_number_str=$(echo "$input_str" | grep --text -o -P "^\./.*?-[0-9]+-") # Perl regexp is used for non-greedy mode (not supported by Extended Regular Expressions with grep -E)
+            filepath_and_line_number_str=$(grep --text -o -P "^\./.*?-[0-9]+-" <<< "$input_str") # Perl regexp is used for non-greedy mode (not supported by Extended Regular Expressions with grep -E)
             filepath_and_line_number_length=${#filepath_and_line_number_str}
             if [[ $filepath_and_line_number_length -eq 0 ]]; then
                 if [[ "$input_str" == "$paragraph_separator" ]]; then
@@ -375,13 +373,14 @@ format_output() {
                     exit 1
                 fi
             fi
-            line_number_str=$(echo "$filepath_and_line_number_str" | grep -o -E "\-[0-9]+-$")
+            line_number_str=$(grep -o -E "\-[0-9]+-$" <<< "$filepath_and_line_number_str")
             filepath=$(substring "$filepath_and_line_number_str" 0 $((filepath_and_line_number_length - ${#line_number_str})))
             skip_occurrence_number_display=1
         else
             printError "format_output error: cannot extract filepath and line number from \"$input_str\""
             exit 1
         fi
+
         highlight_color=$(get_highlight_color "$filepath")
 
         non_printable_status=$(contains_non_printable_characters "$input_str")
@@ -499,9 +498,9 @@ format_output() {
 ############
 
 check_test_condition() {
-    res=$1
-    exp=$2
-    testid=$3
+    local res=$1
+    local exp=$2
+    local testid=$3
 
     if [[ ${#res} != ${#exp} || "$res" != "$exp" ]]; then
         printf 'ERROR %d: \"%q\" is different from \"%q\" (%d, %d)\n' "$testid" "$res" "$exp" "${#res}" "${#exp}" >&2
@@ -1178,14 +1177,14 @@ at_least_one_exclude_operator=0
 for arg in "$@"; do
     ((parameter_idx++))
     if [[ $parameter_idx -ge $nb_options && $parameter_idx -le $((first_str_parameter_idx - 1)) ]]; then
-        if echo "$arg" | grep -q " "; then
+        if grep -q " " <<< "$arg"; then
             pathstrs_list="$pathstrs_list\"$arg\" "
         else
             pathstrs_list="$pathstrs_list$arg "
         fi
         pathstrs_list_for_call="$pathstrs_list_for_call\"$arg\" "
     elif [[ $parameter_idx -ge $first_str_parameter_idx ]]; then
-        if echo "$arg" | grep -q " "; then
+        if grep -q " " <<< "$arg"; then
             strs_list="$strs_list\"$arg\" "
         else
             strs_list="$strs_list$arg "

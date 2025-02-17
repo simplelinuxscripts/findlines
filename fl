@@ -62,10 +62,10 @@
 #  - Special characters can be searched directly, for example
 #    fl "(a*b+[(x/y)-z] || d == e & f)" will search exactly this string without need to escape
 #    the special characters.
-#  - For linux shell's special characters \ and $, they shall be escaped with \\ and \$
-#    respectively, for example fl "\\xxx\$" will search all lines containing "\xxx$" in all files.
+#  - Linux shell's special characters \, $ and ` shall be escaped with \\, \$ and \` respectively.
+#    For example fl "\\xxx\$" will search all lines containing "\xxx$" in all files.
 #  - Special characters can also be searched directly with their ASCII code, for example:
-#    fl $'\x09' will search all lines containing tab characters (\t) in all files
+#    fl $'\x09' will search all lines containing tab characters (\t) in all files,
 #    fl $'\x0D' will search all lines containing carriage return characters (\r) in all files.
 #
 ###################################################################################################
@@ -506,7 +506,6 @@ check_test_condition() {
 unit_tests() {
     echo "Running unit tests..."
 
-    # characters to be marked as special for proper behaviour: \", \`, \$
     MAX_ABBREVIATION_LEN=10000
     MAX_LEN_FOR_LINE_SPLIT=10000
 
@@ -1028,10 +1027,11 @@ unit_tests() {
     # manual tests shall cover all +/++/-/-- operations with all options -i/-p=N/-w
     # so that they work on a file containing the complex sequence of special characters
     # (once or several times on the same line / in the same paragraph when using option -p=N):
-    # aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ $$ ?? || :: ,, ;; ** )) ]] }} \\  a\b\t\n  -- µ%£@&¨#~²
+    # aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ $$ ` ?? || :: ,, ;; ** )) ]] }} \\ \ a\b\t\n  --''x' §°µ%£@&¨#~²
     # => the following commands shall work:
-    # fl "aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ \$\$ ?? || :: ,, ;; ** )) ]] }} \\\\  a\\b\\t\\n  -- µ%£@&¨#~²"
+    # fl "aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ \$\$ \` ?? || :: ,, ;; ** )) ]] }} \\\\ \\ a\\b\\t\\n  --''x' §°µ%£@&¨#~²"
     # fl [options] "this test string" +/++/-/-- "this test string"
+    # Note: ! can also be searched if history expansion feature is temporarily disabled with set +H
 }
 
 ###################################################################################################
@@ -1196,12 +1196,12 @@ for arg in "$@"; do
                 printError "error: character \"$character_separator\" is used for separators in paragraph mode so shall not be at the start or end of parameters"
                 exit 1
             fi
-            reformatted_arg=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g')
+            reformatted_arg=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g')
             if [[ $parameter_idx -eq $first_str_parameter_idx ]]; then
                 first_str_to_find="$arg"
-                reformatted_first_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g')
+                reformatted_first_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g')
                 last_str_to_find="$arg"
-                reformatted_last_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g')
+                reformatted_last_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g')
                 main_search_command="grep -E --text --with-filename -n $grep_ignorecase_option_applied$grep_word_option_applied$paragraph_option_applied-- \"$reformatted_arg\" "
             else
                 if [[ "$last_str_to_find" == "" ]]; then
@@ -1223,7 +1223,7 @@ for arg in "$@"; do
                         extra_search_command="$extra_search_command| grep -E --text $grep_ignorecase_option_applied-- \"$skip_line_info$reformatted_arg\" "
                     fi
                     last_str_to_find="$arg"
-                    reformatted_last_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g')
+                    reformatted_last_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g')
                 elif [[ $include_operator -eq 2 ]]; then
                     if [[ $first_extra_str -eq 0 && "$paragraph_option_applied" == "" ]]; then
                         if [[ "$last_str_to_find" != "$first_str_to_find" ]]; then
@@ -1241,7 +1241,7 @@ for arg in "$@"; do
                         fi
                     fi
                     last_str_to_find="$arg"
-                    reformatted_last_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g')
+                    reformatted_last_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g')
                 elif [[ $include_operator -eq 3 ]]; then
                     extra_search_command="$extra_search_command| grep -E --text -v $grep_ignorecase_option_applied-- \"$skip_line_info$reformatted_arg\" "
                     at_least_one_exclude_operator=1
@@ -1272,7 +1272,7 @@ fi
 ############
 
 SCRIPT_DIR=$(dirname "$0")
-reformatted_first_str_to_find=$(echo "$first_str_to_find" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g')
+reformatted_first_str_to_find=$(echo "$first_str_to_find" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g')
 format_command="| format_output \"$reformatted_first_str_to_find\" \"$(trim "$grep_ignorecase_option_applied")\" \"$(trim "$grep_word_option_applied")\" \"$paragraphsize\" | expand -t 4"
 if [[ $paragraphsize -ge 1 && "$extra_search_command" != "" ]]; then
     search_command="$SCRIPT_DIR/ff -print0 $pathstrs_list_for_call| xargs -0 $main_search_command$gather_paragraph_lines_command$extra_search_command$separate_paragraph_lines_command$format_command"

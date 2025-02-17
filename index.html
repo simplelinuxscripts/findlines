@@ -67,9 +67,9 @@ Of course, all operators <code>+/-/++/--</code> and all options <code>-i/-p=N/-w
 
 Examples of searches with special characters:<br>
 - Special characters can be searched directly, for example <code>fl "(a*b+[(x/y)-z] || d == e & f)"</code> will search exactly this string without need to escape the special characters.<br>
-- For linux shell's special characters \ and $, they shall be escaped with \\ and \$ respectively, for example <code>fl "\\xxx\$"</code> will search all lines containing "\xxx$" in all files.<br>
+- Linux shell's special characters \, $ and ` shall be escaped with \\, \$ and \` respectively. For example <code>fl "\\xxx\$"</code> will search all lines containing "\xxx$" in all files.<br>
 - Special characters can also be searched directly with their ASCII code, for example:<br>
-&nbsp;&nbsp;<code>fl $'\x09'</code> will search all lines containing tab characters (\t) in all files<br>
+&nbsp;&nbsp;<code>fl $'\x09'</code> will search all lines containing tab characters (\t) in all files,<br>
 &nbsp;&nbsp;<code>fl $'\x0D'</code> will search all lines containing carriage return characters (\r) in all files.<br><br>
 
 Practical examples:<br>

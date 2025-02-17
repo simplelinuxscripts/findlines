@@ -63,7 +63,7 @@
  \- Linux shell's special characters \\, \$ and \` shall be escaped with \\\\, \\\$ and \\\` respectively.
     For example `fl "\\xxx\$"` will search all lines containing "\\xxx\$" in all files.  
  \- Special characters can also be searched directly with their ASCII code, for example:  
-   `fl $'\x09'` will search all lines containing tab characters (\t) in all files  
+   `fl $'\x09'` will search all lines containing tab characters (\t) in all files,  
    `fl $'\x0D'` will search all lines containing carriage return characters (\r) in all files.
 
 Practical examples:  

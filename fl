@@ -197,6 +197,7 @@ contains_non_printable_characters() {
     # Notes:
     # - non-ASCII characters (<=> command "grep -qE $'[^\x01-\x7F]';") are multi-byte and are supported by this script so are not considered as non printable
     # - among others \r characters are also supported (aka Ctrl+M or "carriage return" characters = \x0D in ASCII, typically present in Windows files)
+    # - impossible to check \x00 presence in a string with a bash script => \x00 is considered as printable and warning messages will be displayed if issues
     if ! [[ "$(tr -d '[:print:][:blank:]\r§µ¨£°²' <<< "$str")" == "" ]]; then
         echo 1
     else

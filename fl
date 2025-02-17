@@ -197,7 +197,7 @@ contains_non_printable_characters() {
     # Notes:
     # - non-ASCII characters (<=> command "grep -qE $'[^\x01-\x7F]';") are multi-byte and are supported by this script so are not considered as non printable
     # - among others \r characters are also supported (aka Ctrl+M or "carriage return" characters = \x0D in ASCII, typically present in Windows files)
-    # - impossible to check \x00 presence in a string with a bash script => \x00 is considered as printable and warning messages will be displayed if issues
+    # - impossible to check \x00 presence in a string with a bash script => \x00 is considered as printable and a warning message will be displayed if needed
     if ! [[ "$(tr -d '[:print:][:blank:]\r§µ¨£°²' <<< "$str")" == "" ]]; then
         echo 1
     else
@@ -823,10 +823,10 @@ unit_tests() {
     res=$(contains_non_printable_characters " Hel  lo ")
     exp="0"
     check_test_condition "$res" "$exp" $((test_idx++))
-    res=$(contains_non_printable_characters $'\x00') # impossible to check \x00 presence in a string with a bash script
+    res=$(contains_non_printable_characters $'\x00')
     exp="0"
     check_test_condition "$res" "$exp" $((test_idx++))
-    res=$(contains_non_printable_characters $'a\x00b') # impossible to check \x00 presence in a string with a bash script
+    res=$(contains_non_printable_characters $'a\x00b')
     exp="0"
     check_test_condition "$res" "$exp" $((test_idx++))
     res=$(contains_non_printable_characters $'\x01')
@@ -869,22 +869,28 @@ unit_tests() {
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\tx§µ${SOURCE_COLOR}§abcD§${NC}EF")
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    # (\x0D=\r shall be ignored for binary line detection)
-    res=$(echo "./a/b/c/file name.hpp:123:AB\x0DabcDE\rF" | format_output "Abcd" "$grep_ignorecase_option" "" 0);
+    # (\x09=\t shall be ignored for binary line detection)
+    res=$(echo $'./a/b/c/file name.hpp:123:AB\x09abcDE\tF' | format_output $'\x09' "$grep_ignorecase_option" "" 0);
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.hpp:123${NC}\t")
-    exp=$(echo "${exp}AB\x0D${HEADER_COLOR}abcD${NC}E\rF")
-    check_test_condition "$res" "$exp" $((test_idx++))
-
-    # (\x0D=\r shall be ignored for binary line detection)
-    res=$(echo "./a/b/c/file name.hpp:123:AB\x0DabcDE\rF" | format_output "\r" "$grep_ignorecase_option" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.hpp:123${NC}\t")
-    exp=$(echo "${exp}AB\x0DabcDE${HEADER_COLOR}\r${NC}F")
+    exp=$(echo -e "${exp}AB${HEADER_COLOR}\t${NC}abcDE${HEADER_COLOR}\t${NC}F")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     # (\x09=\t shall be ignored for binary line detection)
-    res=$(echo "./a/b/c/file name.hpp:123:AB\x09abcDE\rF" | format_output "\r" "$grep_ignorecase_option" "" 0);
+    res=$(echo $'./a/b/c/file name.hpp:123:AB\x09abcDEF' | format_output $'b\x09a' "$grep_ignorecase_option" "" 0);
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.hpp:123${NC}\t")
-    exp=$(echo "${exp}AB\x09abcDE${HEADER_COLOR}\r${NC}F")
+    exp=$(echo -e "${exp}A${HEADER_COLOR}B\ta${NC}bcDEF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (\x0D=\r shall be ignored for binary line detection)
+    res=$(echo $'./a/b/c/file name.hpp:123:AB\x0DabcDE\rF' | format_output $'\x0D' "$grep_ignorecase_option" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.hpp:123${NC}\t")
+    exp=$(echo -e "${exp}AB${HEADER_COLOR}\r${NC}abcDE${HEADER_COLOR}\r${NC}F")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (\x0D=\r shall be ignored for binary line detection)
+    res=$(echo $'./a/b/c/file name.hpp:123:AB\x0DabcDEF' | format_output $'b\x0Da' "$grep_ignorecase_option" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.hpp:123${NC}\t")
+    exp=$(echo -e "${exp}A${HEADER_COLOR}B\ra${NC}bcDEF")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     test_idx=500

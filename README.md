@@ -7,10 +7,10 @@
 ### DESCRIPTION:
 
  The goal of this linux bash script (`fl`) is to simply and quickly display all the lines
- or multi-line paragraphs matching the str parameters in all the files being filtered
- by the pathstr parameters, see below examples.  
+ or multi-line paragraphs matching the `str` parameters in all the files being filtered
+ by the `pathstr` parameters, see below examples.  
  Special characters (like *, +, |, :, ...) do not need to be escaped, they are searched
- directly as provided in the str parameters, which makes the usage very simple.  
+ directly as provided in the `str` parameters, which makes the usage very simple.  
  Binary files contents are also searched, so that as many matching lines as possible are
  displayed at the end and no occurrence is missed.
 
@@ -54,7 +54,7 @@
    => find all lines containing the whole word "str" in the .c files of current folder
       and its subfolders  
 
- Of course, all operators +/-/++/-- and all options -i/-p=N/-w can be used jointly.
+ Of course, all operators `+/-/++/--` and all options `-i/-p=N/-w` can be used jointly.
 
  Examples of searches with special characters:  
  \- Special characters can be searched directly, for example

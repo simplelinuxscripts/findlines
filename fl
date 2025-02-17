@@ -423,7 +423,7 @@ format_output() {
                     idx=$(indexOf "$current_input_str" "$reformatted_searched_str_p" "$grep_ignorecase_option_p" "$grep_word_option_p")
                     if [[ $idx -eq -1 ]]; then
                         if [[ $at_least_one_occurrence_on_line -eq 0 && $paragraph_size_p -eq 0 ]]; then
-                            # warning that no occurrence was successfully highlighted on current line: can occur due to special characters like \x00 / when grep_word_option_p is used
+                            # warning that no occurrence was successfully highlighted on current line: can occur due to \x00 specical character
                             echo -e -n "$highlight_color[???]$NC "
                             current_input_str=$(left_trim "$current_input_str")
                         fi

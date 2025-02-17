@@ -194,17 +194,13 @@ abbreviate() {
 contains_non_printable_characters() {
     local str=$1
 
-    # Check presence of NULL characters (\x00), necessary to avoid "warning: command substitution: ignored null byte in input"
-    # Note: non-ASCII characters (<=> command "grep -qE $'[^\x01-\x7F]';") are multi-byte and are supported by this script so are not considered as non printable
-    if [[ "$str" == *"\x00"* ]]; then
+    # Notes:
+    # - non-ASCII characters (<=> command "grep -qE $'[^\x01-\x7F]';") are multi-byte and are supported by this script so are not considered as non printable
+    # - among others \r characters are also supported (aka Ctrl+M or "carriage return" characters = \x0D in ASCII, typically present in Windows files)
+    if ! [[ "$(tr -d '[:print:][:blank:]\r§µ¨£°²' <<< "$str")" == "" ]]; then
         echo 1
     else
-        # Note: ignore \r characters (aka Ctrl+M or "carriage return" characters = \x0D in ASCII, typically present in Windows files)
-        if [[ "$str" =~ [^[:print:][:blank:]\x0D] ]]; then
-          echo 1
-        else
-          echo 0
-        fi
+        echo 0
     fi
 }
 
@@ -426,13 +422,9 @@ format_output() {
                     idx=$(indexOf "$current_input_str" "$reformatted_searched_str_p" "$grep_ignorecase_option_p" "$grep_word_option_p")
                     if [[ $idx -eq -1 ]]; then
                         if [[ $at_least_one_occurrence_on_line -eq 0 && $paragraph_size_p -eq 0 ]]; then
-                            if [[ "$grep_word_option_p" == "" ]]; then
-                                printError "format_output error: first string to find \"$searched_str_p\" not found"
-                                exit 1
-                            else
-                                # warning that no occurrence was successfully highlighted on current line (can occur due to special characters when grep_word_option_p is used)
-                                echo -e -n "$highlight_color[???]$NC "
-                            fi
+                            # warning that no occurrence was successfully highlighted on current line: can occur due to special characters like \x00 / when grep_word_option_p is used
+                            echo -e -n "$highlight_color[???]$NC "
+                            current_input_str=$(left_trim "$current_input_str")
                         fi
                         if [[ "$current_input_str" != "" ]]; then
                             tmp_abbreviated_str=$(right_trim "$current_input_str")
@@ -522,24 +514,10 @@ unit_tests() {
     test_idx=1
 
     # (string not found)
-    res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "abc" "" "" 0 2>&1);
-    if [[ "$res" == *"format_output error: first string to find \"abc\" not found"* ]]; then
-        echo "OK $((test_idx++))"
-    else
-        echo "ERROR $((test_idx++))"
-    fi
-    res=$(echo "./aaa/bbb/ccc/file name.cpp:123:$complex_str" | format_output ".*" "" "" 0 2>&1);
-    if [[ "$res" == *"format_output error: first string to find \".*\" not found"* ]]; then
-        echo "OK $((test_idx++))"
-    else
-        echo "ERROR $((test_idx++))"
-    fi
-    res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "//*" "" "" 0 2>&1);
-    if [[ "$res" == *"format_output error: first string to find \"//*\" not found"* ]]; then
-        echo "OK $((test_idx++))"
-    else
-        echo "ERROR $((test_idx++))"
-    fi
+    res=$(echo "./a/b/c/file name.cpp:123:  aBc  " | format_output "aBcX" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}[???]${NC} aBc")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
     res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "" "" "" 0 2>&1);
     if [[ "$res" == *"empty searched_str_p"* ]]; then
         echo "OK $((test_idx++))"
@@ -577,18 +555,12 @@ unit_tests() {
     check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo "./a/b/c/file name.cpp:123:   aBc   " | format_output "    aBc" "" "" 0 2>&1);
-    if [[ "$res" == *"format_output error: first string to find \"    aBc\" not found"* ]]; then
-        echo "OK $((test_idx++))"
-    else
-        echo "ERROR $((test_idx++))"
-    fi
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}[???]${NC} aBc")
+    check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo "./a/b/c/file name.cpp:123:   aBc   " | format_output "aBc    " "" "" 0 2>&1);
-    if [[ "$res" == *"format_output error: first string to find \"aBc    \" not found"* ]]; then
-        echo "OK $((test_idx++))"
-    else
-        echo "ERROR $((test_idx++))"
-    fi
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}[???]${NC} aBc")
+    check_test_condition "$res" "$exp" $((test_idx++))
 
     test_idx=100
     # (special characters)
@@ -669,11 +641,8 @@ unit_tests() {
 
     # (ignore case)
     res=$(echo "./a/b/c/file name.cpp:123: abcDEF  " | format_output "ABCdef " "" "" 0 2>&1);
-    if [[ "$res" == *"format_output error: first string to find \"ABCdef \" not found"* ]]; then
-        echo "OK $((test_idx++))"
-    else
-        echo "ERROR $((test_idx++))"
-    fi
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}[???]${NC} abcDEF")
+    check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo "./a/b/c/file name.cpp:123:  abcDEF " | format_output "ABCdef " "$grep_ignorecase_option" "" 0);
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}abcDEF ${NC}")
@@ -696,11 +665,8 @@ unit_tests() {
     check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "  e  FXYZ,,?&|+;;.  " "" "" 0 2>&1);
-    if [[ "$res" == *"format_output error: first string to find \"  e  FXYZ,,?&|+;;.  \" not found"* ]]; then
-        echo "OK $((test_idx++))"
-    else
-        echo "ERROR $((test_idx++))"
-    fi
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}[???]${NC} $trimmed_complex_str")
+    check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "  e  FXYZ,,?&|+;;.  " "$grep_ignorecase_option" "" 0);
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019AbcD${SOURCE_COLOR}  E  FxYZ,,?&|+;;.  ${NC}...:://!! != §%% * **    ****    µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( )) ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- --- | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA")
@@ -853,29 +819,43 @@ unit_tests() {
 
     test_idx=400
     # (non-printable characters)
-    res=$(contains_non_printable_characters " Hello ")
+    res=$(contains_non_printable_characters " Hel  lo ")
     exp="0"
     check_test_condition "$res" "$exp" $((test_idx++))
-    res=$(contains_non_printable_characters " Hel\x00lo ")
+    res=$(contains_non_printable_characters $'\x00') # impossible to check \x00 presence in a string with a bash script
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(contains_non_printable_characters $'a\x00b') # impossible to check \x00 presence in a string with a bash script
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(contains_non_printable_characters $'\x01')
     exp="1"
     check_test_condition "$res" "$exp" $((test_idx++))
-    res=$(contains_non_printable_characters $'\x02')
+    res=$(contains_non_printable_characters $'\ax02b')
     exp="1"
     check_test_condition "$res" "$exp" $((test_idx++))
-    res=$(contains_non_printable_characters $'\x08')
+    res=$(contains_non_printable_characters $'    abc   \x08\x08   def   ')
     exp="1"
     check_test_condition "$res" "$exp" $((test_idx++))
-
-    res=$(echo "./a/b/c/file name.hpp:123:AB\x00abcDEF" | format_output "Abcd" "$grep_ignorecase_option" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.hpp:123~${NC} some binary line(s) contain ${HEADER_COLOR}Abcd${NC}...")
+    res=$(contains_non_printable_characters $'\x0D')
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(contains_non_printable_characters $'\x09')
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(contains_non_printable_characters $'a\x09b')
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    res=$(contains_non_printable_characters $'abc\x09\x0Ddef')
+    exp="0"
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    res=$(echo "./a/b/c/file name.cpp:123:\x00abcDEF" | format_output "Abcd" "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123~${NC} some binary line(s) contain ${SOURCE_COLOR}Abcd${NC}...")
+    res=$(echo $'./a/b/c/file name.cpp:123: aBc \x00AbcdEF ' | format_output "Abcd" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}[???]${NC} aBc")
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    res=$(echo "./a/b/c/file name.cpp:123:\x00abcDEF" | format_output "abcD" "$grep_ignorecase_option" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123~${NC} some binary line(s) contain ${SOURCE_COLOR}abcD${NC}...")
+    res=$(echo $'./a/b/c/file name.cpp:123: aBcAbcd \x00DEF ' | format_output "Abcd" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\taBc${SOURCE_COLOR}Abcd${NC}")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     # (non-ASCII character: µ is encoded on 2 bytes)
@@ -1177,14 +1157,14 @@ at_least_one_exclude_operator=0
 for arg in "$@"; do
     ((parameter_idx++))
     if [[ $parameter_idx -ge $nb_options && $parameter_idx -le $((first_str_parameter_idx - 1)) ]]; then
-        if grep -q " " <<< "$arg"; then
+        if [[ "$arg" =~ [[:blank:]] ]]; then
             pathstrs_list="$pathstrs_list\"$arg\" "
         else
             pathstrs_list="$pathstrs_list$arg "
         fi
         pathstrs_list_for_call="$pathstrs_list_for_call\"$arg\" "
     elif [[ $parameter_idx -ge $first_str_parameter_idx ]]; then
-        if grep -q " " <<< "$arg"; then
+        if [[ "$arg" =~ [[:blank:]] ]]; then
             strs_list="$strs_list\"$arg\" "
         else
             strs_list="$strs_list$arg "

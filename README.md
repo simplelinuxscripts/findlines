@@ -6,7 +6,7 @@
 
 ### DESCRIPTION:
 
- The goal of this linux bash script (fl) is to simply and quickly display all the lines
+ The goal of this linux bash script (`fl`) is to simply and quickly display all the lines
  or multi-line paragraphs matching the str parameters in all the files being filtered
  by the pathstr parameters, see below examples.  
  Special characters (like *, +, |, :, ...) do not need to be escaped, they are searched
@@ -16,11 +16,11 @@
 
 ### OPTIONS:
 
- -i: ignore lower/upper case during the search  
- -p=N: consider paragraphs of 2N+1 lines during the search (N >= 1) instead of line
+ `-i`: ignore lower/upper case during the search  
+ `-p=N`: consider paragraphs of 2N+1 lines during the search (N >= 1) instead of line
        by line search (2N+1 = N lines before first str matching line + first str
        matching line + N lines after first str matching line)  
- -w: first str to find shall be a whole word (word-constituent characters are letters,
+ `-w`: first str to find shall be a whole word (word-constituent characters are letters,
      digits and underscore)
 
 ### EXAMPLES:

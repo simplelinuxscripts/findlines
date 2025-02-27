@@ -98,7 +98,7 @@ if [[ "$print0_option" == "" ]]; then
     else # no formatting
         search_command="find . -type f $included_names_list$excluded_names_list"
         # echo "search_command=$search_command"
-        eval "$search_command"
+        eval "$search_command" | sed "s|\./||"
     fi
 else
     search_command="find . -type f $included_names_list$excluded_names_list$print0_option"

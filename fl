@@ -290,6 +290,10 @@ format_output() {
                 filepath="${filepath_and_line_number_str:0:idx}" # substring
                 length=$((input_str_length - filepath_and_line_number_length))
                 current_input_str="${input_str:filepath_and_line_number_length:length}" # substring
+                if [[ "$current_input_str" == "" && $paragraph_size_p -eq 0 ]]; then
+                    printError "unexpected empty matching line for $filepath:$line_number"
+                    exit 1
+                fi
                 skip_occurrence_number_display=0
             elif [[ $paragraph_size_p -ne 0 ]]; then
                 IFS="-"
@@ -944,6 +948,13 @@ unit_tests() {
 
     res=$(echo "./a/b/c/file name.cpp:xxx:123" | format_output "B" "" "" 0 2>&1);
     if [[ "$res" == *"cannot extract filepath and line number from"* ]]; then
+        echo "OK $((test_idx++))"
+    else
+        echo "ERROR $((test_idx++))"
+    fi
+
+    res=$(echo "./a/b/c/file name.cpp:xyz:123:" | format_output "ABC" "" "" 0 2>&1);
+    if [[ "$res" == *"unexpected empty matching line for"* ]]; then
         echo "OK $((test_idx++))"
     else
         echo "ERROR $((test_idx++))"

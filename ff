@@ -94,7 +94,7 @@ if [[ "$print0_option" == "" ]]; then
     if [[ $noformatting -eq 0 ]]; then # formatting
         search_command="find . -type f $included_names_list$excluded_names_list-print0 | xargs -0 -r ls -l"
         # echo "search_command=$search_command"
-        eval "$search_command" | awk '{$3=""; $4=""; print $1, $5, $6, $7, $8, $9}' | nl -w 1 -s ' ' | sed -E "s|^([0-9]+)|\x1b[33m\1${NC}|" | sed -E "s|(./.*)$|${BOLD}\1${NC}|" | sed "s|\./||"
+        eval "$search_command" | sed 's/^\([^ ]* \)[^ ]* [^ ]* [^ ]* /\1/' | nl -w 1 -s ' ' | sed -E "s|^([0-9]+)|\x1b[33m\1${NC}|" | sed -E "s|(./.*)$|${BOLD}\1${NC}|" | sed "s|\./||"
     else # no formatting
         search_command="find . -type f $included_names_list$excluded_names_list"
         # echo "search_command=$search_command"

@@ -265,6 +265,7 @@ format_output() {
 
         input_str_length=${#input_str}
 
+        # extract filepath and line number
         # input_str format is ./xxx/yyy/zzz.txt:123:line_contents or ./xxx/yyy/zzz.txt-123-line_contents (possible in paragraph mode)
         OLDIFS=$IFS
         IFS=":"
@@ -278,7 +279,7 @@ format_output() {
             reformatted_filepath_and_line_number_str="${filepath_and_line_number_str#./}" # remove leading ./
             skip_occurrence_number_display=0
         else
-            # other slower method
+            # try slower method
             filepath_and_line_number_str=$(grep --text -o -P "^\./.*?:[0-9]+:" <<< "$input_str") # Perl regexp is used for non-greedy mode (not supported by Extended Regular Expressions with grep -E)
             filepath_and_line_number_length=${#filepath_and_line_number_str}
             if [[ $filepath_and_line_number_length -ne 0 ]]; then
@@ -296,20 +297,42 @@ format_output() {
                 fi
                 skip_occurrence_number_display=0
             elif [[ $paragraph_size_p -ne 0 ]]; then
-                IFS="-"
-                read -r filepath line_number current_input_str <<< "$input_str"
-                # to simplify, "if ! [[ "$line_number" =~ ^[0-9]+$ ]]" is not explictly checked, rare extraction errors are tolerated
-                if [[ "$line_number" == "" ]]; then
-                    printError "format_output error: cannot extract filepath and line number in paragraph mode from \"$input_str\""
-                    exit 1
-                fi
-                filepath_and_line_number_str="$filepath-$line_number"
-                reformatted_filepath_and_line_number_str="${filepath_and_line_number_str#./}" # remove leading ./
-                if [[ "$current_input_str" == "" ]]; then
-                    echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str$NC"
+                if [[ "$input_str" == "$paragraph_separator" ]]; then
                     continue
+                else
+                    IFS="-"
+                    read -r filepath line_number current_input_str <<< "$input_str"
+                    if [[ "$line_number" =~ ^[0-9]+$ ]]; then
+                        filepath_and_line_number_str="$filepath-$line_number"
+                        reformatted_filepath_and_line_number_str="${filepath_and_line_number_str#./}" # remove leading ./
+                        if [[ "$current_input_str" == "" ]]; then
+                            echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str$NC"
+                            continue
+                        fi
+                    else
+                        # try slower method
+                        filepath_and_line_number_str=$(grep --text -o -P "^\./.*?-[0-9]+-" <<< "$input_str") # Perl regexp is used for non-greedy mode (not supported by Extended Regular Expressions with grep -E)
+                        filepath_and_line_number_length=${#filepath_and_line_number_str}
+                        if [[ $filepath_and_line_number_length -ne 0 ]]; then
+                            reformatted_filepath_and_line_number_str="${filepath_and_line_number_str#./}" # remove leading ./
+                            reformatted_filepath_and_line_number_str="${reformatted_filepath_and_line_number_str%-}"  # remove ending -
+                            line_number_with_separators=$(grep -o -E "\-[0-9]+-$" <<< "$filepath_and_line_number_str")
+                            line_number_with_separators_length=${#line_number_with_separators}
+                            idx=$((filepath_and_line_number_length - line_number_with_separators_length))
+                            filepath="${filepath_and_line_number_str:0:idx}" # substring
+                            length=$((input_str_length - filepath_and_line_number_length))
+                            current_input_str="${input_str:filepath_and_line_number_length:length}" # substring
+                            if [[ "$current_input_str" == "" ]]; then
+                                echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str$NC"
+                                continue
+                            fi
+                        else
+                            printError "format_output error: cannot extract filepath and line number in paragraph mode from \"$input_str\""
+                            exit 1
+                        fi
+                    fi
+                    skip_occurrence_number_display=1
                 fi
-                skip_occurrence_number_display=1
             else
                 printError "format_output error: cannot extract filepath and line number from \"$input_str\""
                 exit 1
@@ -1032,17 +1055,16 @@ unit_tests() {
 
     test_idx=700
     # (paragraphs)
-    res=$(echo "./a/b/c/file name.cpp:123:xxxxxxx" | format_output "xxx" "" "" 1);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}xxx${NC}${SOURCE_COLOR}xxx${NC}x")
+    res=$(echo "./a/b/c/file name.cpp:123:  xxxxxxx  " | format_output "xxx" "" "" 1);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t  ${SOURCE_COLOR}xxx${NC}${SOURCE_COLOR}xxx${NC}x")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo "./a/b/c/file name.cpp-123-xxxxxxx" | format_output "xxx" "" "" 2);
     exp=$(echo -e "  ${FILEPATH_COLOR}a/b/c/file name.cpp-123${NC}\t${SOURCE_COLOR}xxx${NC}${SOURCE_COLOR}xxx${NC}x\nno occurrence")
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    # (tolerated rare extraction error in paragraph mode)
-    res=$(echo "./a/b/c/file name *+ ~|()!?:12 12a-abc-456-.hpp-123- aBc -- 78 " | format_output "--" "" "" 2);
-    exp=$(echo -e "  ${FILEPATH_COLOR}a/b/c/file name *+ ~|()!?:12 12a-abc${NC}\t456-.hpp-123- aBc ${OTHER_COLOR}--${NC} 78\nno occurrence")
+    res=$(echo "./a/b/c/file name *+ ~|()!?:12  12a-1abc-456a-.hpp-123-  aBc --  78 " | format_output "--" "" "" 2);
+    exp=$(echo -e "  ${FILEPATH_COLOR}a/b/c/file name *+ ~|()!?:12  12a-1abc-456a-.hpp-123${NC}\t  aBc ${HEADER_COLOR}--${NC}  78\nno occurrence")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     # (extraction error in paragraph mode)

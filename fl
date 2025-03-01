@@ -354,6 +354,14 @@ format_output() {
             elif [[ "$filepath" == *".h" || "$filepath" == *".hh" || "$filepath" == *".hpp" ]]; then
                 highlight_color="$HEADER_COLOR$specific_formatting"
                 non_printable_status=0
+            # common non binary files
+            elif [[ "$filepath" == *".txt" || "$filepath" == *".js" || "$filepath" == *".log" || "$filepath" == *".html" || "$filepath" == *".xml" || "$filepath" == *".csv" ]]; then
+                highlight_color="$OTHER_COLOR$specific_formatting"
+                non_printable_status=0
+            # common binary files
+            elif [[ "$filepath" == *".o" || "$filepath" == *".obj" || "$filepath" == *".png" || "$filepath" == *".jpg" || "$filepath" == *".docx" || "$filepath" == *".zip" || "$filepath" == *".gz" || "$filepath" == *".bin" ]]; then
+                highlight_color="$OTHER_COLOR$specific_formatting"
+                non_printable_status=1
             # other files
             else
                 highlight_color="$OTHER_COLOR$specific_formatting"
@@ -362,7 +370,7 @@ format_output() {
                 # - non-ASCII characters (<=> command "grep -qE $'[^\x01-\x7F]';") are multi-byte and are supported by this script so are not considered as non printable
                 # - among others \r characters are also supported (aka Ctrl+M or "carriage return" characters = \x0D in ASCII, typically present in Windows files)
                 # - impossible to check \x00 presence in a string with a bash script => \x00 is considered as printable and a warning message will be displayed if needed
-                if [[ "$(tr -d '[:print:][:blank:]\r§µ¨£°²' <<< "$input_str")" != "" ]]; then # code duplicated in unit tests
+                if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< "$input_str")" != "" ]]; then # code duplicated in unit tests (a little slower but better than tr -d '[:print:][:blank:]\r§µ¨£°²' which operates based on single-byte ASCII characters by default)
                     non_printable_status=1
                 else
                     non_printable_status=0
@@ -499,7 +507,7 @@ unit_tests() {
     MAX_ABBREVIATION_LEN=10000
     MAX_LEN_FOR_LINE_SPLIT=10000
 
-    complex_str="       019AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% * **    ****    µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( )) ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- ---  | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA               "
+    complex_str="       019AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% * **    ****    µùéèàâêîôûŷäëïöüÿãẽĩõũỹ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( )) ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- ---  | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA               "
     trimmed_complex_str="${complex_str#"${complex_str%%[![:space:]]*}"}"  # left trim
     trimmed_complex_str="${trimmed_complex_str%"${trimmed_complex_str##*[![:space:]]}"}"  # right trim
 
@@ -654,33 +662,33 @@ unit_tests() {
     test_idx=200
     # (complex_str)
     # (first half of complex_str)
-    res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% * **    ****    µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( ))" "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019${SOURCE_COLOR}AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% * **    ****    µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( ))${NC} ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- ---  | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA")
+    res=$(echo "./a/b/c/file name.xxx:123:$complex_str" | format_output "AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% * **    ****    µùéèàâêîôûŷäëïöüÿãẽĩõũỹ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( ))" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC}\t019${OTHER_COLOR}AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% * **    ****    µùéèàâêîôûŷäëïöüÿãẽĩõũỹ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( ))${NC} ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- ---  | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     # (second half of complex_str)
-    res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output " ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- ---  | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA" "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% * **    ****    µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( ))${SOURCE_COLOR} ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- ---  | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA${NC}")
+    res=$(echo "./a/b/c/file name.xxx:123:$complex_str" | format_output " ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- ---  | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC}\t019AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% * **    ****    µùéèàâêîôûŷäëïöüÿãẽĩõũỹ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( ))${OTHER_COLOR} ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- ---  | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA${NC}")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "  E  FxYZ,,?&|+;;.  " "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019AbcD${SOURCE_COLOR}  E  FxYZ,,?&|+;;.  ${NC}...:://!! != §%% * **    ****    µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( )) ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- ---  | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA")
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019AbcD${SOURCE_COLOR}  E  FxYZ,,?&|+;;.  ${NC}...:://!! != §%% * **    ****    µùéèàâêîôûŷäëïöüÿãẽĩõũỹ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( )) ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- ---  | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA")
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "  e  FXYZ,,?&|+;;.  " "" "" 0 2>&1);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}$no_match${NC} $trimmed_complex_str")
+    res=$(echo "./a/b/c/file name.hpp:123:$complex_str" | format_output "  e  FXYZ,,?&|+;;.  " "" "" 0 2>&1);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.hpp:123${NC}\t${HEADER_COLOR}$no_match${NC} $trimmed_complex_str")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "  e  FXYZ,,?&|+;;.  " "$grep_ignorecase_option" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019AbcD${SOURCE_COLOR}  E  FxYZ,,?&|+;;.  ${NC}...:://!! != §%% * **    ****    µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( )) ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- ---  | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA")
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019AbcD${SOURCE_COLOR}  E  FxYZ,,?&|+;;.  ${NC}...:://!! != §%% * **    ****    µùéèàâêîôûŷäëïöüÿãẽĩõũỹ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( )) ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- ---  | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "² <>aA" "$grep_ignorecase_option" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% * **    ****    µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( )) ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- ---  | || ' '' ''' \" \"\" ## # \" ~ & && ${SOURCE_COLOR}² <>aA${NC}")
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% * **    ****    µùéèàâêîôûŷäëïöüÿãẽĩõũỹ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( )) ( ) () [[ ]] [ ] [] ° @ / // /* */ ^ ^^ _ __ \ \\ \` -  -- ---  | || ' '' ''' \" \"\" ## # \" ~ & && ${SOURCE_COLOR}² <>aA${NC}")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo "./a/b/c/file name.cpp:123:$complex_str" | format_output "* " "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% ${SOURCE_COLOR}* ${NC}*${SOURCE_COLOR}* ${NC}   ***${SOURCE_COLOR}* ${NC}   µ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( )) ( ) () [[ ]] [ ] [] ° @ / // /${SOURCE_COLOR}* ${NC}*/ ^ ^^ _ __ \ \\ \` -  -- ---  | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA")
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t019AbcD  E  FxYZ,,?&|+;;.  ...:://!! != §%% ${SOURCE_COLOR}* ${NC}*${SOURCE_COLOR}* ${NC}   ***${SOURCE_COLOR}* ${NC}   µùéèàâêîôûŷäëïöüÿãẽĩõũỹ^^¨¨\$\$££ = == === {{}} {} + ++ +++ (( )) ( ) () [[ ]] [ ] [] ° @ / // /${SOURCE_COLOR}* ${NC}*/ ^ ^^ _ __ \ \\ \` -  -- ---  | || ' '' ''' \" \"\" ## # \" ~ & && ² <>aA")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     test_idx=300
@@ -822,70 +830,77 @@ unit_tests() {
 
     test_idx=400
     # (non-printable characters)
-    if [[ "$(tr -d '[:print:][:blank:]\r§µ¨£°²' <<< " Hel  lo ")" != "" ]]; then # code duplicated from actual code
+    if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< " Hel  lo ")" != "" ]]; then # code duplicated from actual code
         res=1
     else
         res=0
     fi
     exp="0"
     check_test_condition "$res" "$exp" $((test_idx++))
-    if [[ "$(tr -d '[:print:][:blank:]\r§µ¨£°²' <<< $'\x00')" != "" ]]; then # code duplicated from actual code
+    if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< $'\x00')" != "" ]]; then # code duplicated from actual code
         res=1
     else
         res=0
     fi
     exp="0"
     check_test_condition "$res" "$exp" $((test_idx++))
-    if [[ "$(tr -d '[:print:][:blank:]\r§µ¨£°²' <<< $'a\x00b')" != "" ]]; then # code duplicated from actual code
+    if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< $'a\x00b')" != "" ]]; then # code duplicated from actual code
         res=1
     else
         res=0
     fi
     exp="0"
     check_test_condition "$res" "$exp" $((test_idx++))
-    if [[ "$(tr -d '[:print:][:blank:]\r§µ¨£°²' <<< $'\x01')" != "" ]]; then # code duplicated from actual code"
+    if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< $'\x01')" != "" ]]; then # code duplicated from actual code"
         res=1
     else
         res=0
     fi
     exp="1"
     check_test_condition "$res" "$exp" $((test_idx++))
-    if [[ "$(tr -d '[:print:][:blank:]\r§µ¨£°²' <<< $'\ax02b')" != "" ]]; then # code duplicated from actual code
+    if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< $'\ax02b')" != "" ]]; then # code duplicated from actual code
         res=1
     else
         res=0
     fi
     exp="1"
     check_test_condition "$res" "$exp" $((test_idx++))
-    if [[ "$(tr -d '[:print:][:blank:]\r§µ¨£°²' <<< $'    abc   \x08\x08   def   ')" != "" ]]; then # code duplicated from actual code
+    if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< $'    abc   \x08\x08   def   ')" != "" ]]; then # code duplicated from actual code
         res=1
     else
         res=0
     fi
     exp="1"
     check_test_condition "$res" "$exp" $((test_idx++))
-    if [[ "$(tr -d '[:print:][:blank:]\r§µ¨£°²' <<< $'\x0D')" != "" ]]; then # code duplicated from actual code
+    if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< $'\x0D')" != "" ]]; then # code duplicated from actual code
         res=1
     else
         res=0
     fi
     exp="0"
     check_test_condition "$res" "$exp" $((test_idx++))
-    if [[ "$(tr -d '[:print:][:blank:]\r§µ¨£°²' <<< $'\x09')" != "" ]]; then # code duplicated from actual code
+    if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< $'\x09')" != "" ]]; then # code duplicated from actual code
         res=1
     else
         res=0
     fi
     exp="0"
     check_test_condition "$res" "$exp" $((test_idx++))
-    if [[ "$(tr -d '[:print:][:blank:]\r§µ¨£°²' <<< $'a\x09b')" != "" ]]; then # code duplicated from actual code
+    if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< $'a\x09b')" != "" ]]; then # code duplicated from actual code
         res=1
     else
         res=0
     fi
     exp="0"
     check_test_condition "$res" "$exp" $((test_idx++))
-    if [[ "$(tr -d '[:print:][:blank:]\r§µ¨£°²' <<< $'abc\x09\x0Ddef')" != "" ]]; then # code duplicated from actual code
+    if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< $'abc\x09\x0Ddef')" != "" ]]; then # code duplicated from actual code
+        res=1
+    else
+        res=0
+    fi
+    exp="0"
+    check_test_condition "$res" "$exp" $((test_idx++))
+    if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< 'abcµùéèàâêîôûŷäëïöüÿãẽĩõũỹdef')" != "" ]]; then # code duplicated from actual code
         res=1
     else
         res=0
@@ -893,8 +908,17 @@ unit_tests() {
     exp="0"
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    res=$(echo $'./a/b/c/file name.cpp:123: aBc \x00AbcdEF ' | format_output "Abcd" "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}$no_match${NC} aBc")
+    # (binary lines)
+    res=$(echo $'./a/b/c/file name.cpp:123:xx\x01aBcxx' | format_output "aBc" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\txx\x01${SOURCE_COLOR}aBc${NC}xx")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo $'./a/b/c/file name.xxx:123:xx\x01aBcxx' | format_output "aBc" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC} some binary line(s) contain ${OTHER_COLOR}aBc${NC}...")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo $'./a/b/c/file name.bin:123:xxaBcxx' | format_output "aBc" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.bin:123${NC} some binary line(s) contain ${OTHER_COLOR}aBc${NC}...")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo $'./a/b/c/file name.cpp:123: aBcAbcd \x00DEF ' | format_output "Abcd" "" "" 0);
@@ -1102,9 +1126,9 @@ unit_tests() {
     # manual tests shall cover all +/++/-/-- operations with all options -i/-p=N/-w
     # so that they work on a file containing the complex sequence of special characters
     # (once or several times on the same line / in the same paragraph when using option -p=N):
-    # aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ $$ ` ?? || :: ,, ;; ** )) ]] }}   \\ \ a\b\t\n  --''x' §°µ%£@&¨#~²
+    # aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ $$ ` ?? || :: ,, ;; ** )) ]] }}   \\ \ a\b\t\n  --''x' §°µùéèàâêîôûŷäëïöüÿãẽĩõũỹ%£@&¨#~²
     # => the following commands shall work:
-    # fl "aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ \$\$ \` ?? || :: ,, ;; ** )) ]] }}   \\\\ \\ a\\b\\t\\n  --''x' §°µ%£@&¨#~²"
+    # fl "aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ \$\$ \` ?? || :: ,, ;; ** )) ]] }}   \\\\ \\ a\\b\\t\\n  --''x' §°µùéèàâêîôûŷäëïöüÿãẽĩõũỹ%£@&¨#~²"
     # fl [options] "this test string" +/++/-/-- "this test string"
     # Note: ! character can also be searched if history expansion feature is temporarily disabled (with set +H)
 }

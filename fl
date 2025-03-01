@@ -365,12 +365,12 @@ format_output() {
             # other files
             else
                 highlight_color="$OTHER_COLOR$specific_formatting"
-                # check if input_str contains non printable characters (binary line detection)
+                # check if current_input_str contains non printable characters (binary line detection)
                 # Notes:
                 # - non-ASCII characters (<=> command "grep -qE $'[^\x01-\x7F]';") are multi-byte and are supported by this script so are not considered as non printable
                 # - among others \r characters are also supported (aka Ctrl+M or "carriage return" characters = \x0D in ASCII, typically present in Windows files)
                 # - impossible to check \x00 presence in a string with a bash script => \x00 is considered as printable and a warning message will be displayed if needed
-                if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< "$input_str")" != "" ]]; then # code duplicated in unit tests (a little slower but better than tr -d '[:print:][:blank:]\r§µ¨£°²' which operates based on single-byte ASCII characters by default)
+                if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< "$current_input_str")" != "" ]]; then # code duplicated in unit tests (a little slower but better than tr -d '[:print:][:blank:]\r§µ¨£°²' which operates based on single-byte ASCII characters by default)
                     non_printable_status=1
                 else
                     non_printable_status=0

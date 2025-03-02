@@ -462,16 +462,14 @@ format_output() {
         # Case some characters are non printable
         else
             if [[ "$last_binary_filepath" != "$filepath" ]]; then
-                binary_line_msg="some binary line(s) contain"
+                binary_line_msg="${highlight_color}binary line(s)${NC}"
                 if [[ $skip_occurrence_number_display -eq 0 ]]; then
                     total_nb_lines_displayed=$((total_nb_lines_displayed + 1))
                     # searched_str_p deemed always present at this stage (explicit presence check can be disturbed by special characters)
-                    echo -e -n "$FILEPATH_COLOR$total_nb_lines_displayed $reformatted_filepath_and_line_number_str$NC $binary_line_msg $highlight_color"
+                    echo -e "$FILEPATH_COLOR$total_nb_lines_displayed $reformatted_filepath_and_line_number_str$NC $binary_line_msg"
                  else
-                    echo -e -n "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str$NC $binary_line_msg $highlight_color"
+                    echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str$NC $binary_line_msg"
                  fi
-                echo -n "$searched_str_p"
-                echo -e "$NC..."
                 last_binary_filepath="$filepath"
             fi
         fi
@@ -914,11 +912,11 @@ unit_tests() {
     check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo $'./a/b/c/file name.xxx:123:xx\x01aBcxx' | format_output "aBc" "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC} some binary line(s) contain ${OTHER_COLOR}aBc${NC}...")
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC} ${OTHER_COLOR}binary line(s)${NC}")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo $'./a/b/c/file name.bin:123:xxaBcxx' | format_output "aBc" "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.bin:123${NC} some binary line(s) contain ${OTHER_COLOR}aBc${NC}...")
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.bin:123${NC} ${OTHER_COLOR}binary line(s)${NC}")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo $'./a/b/c/file name.cpp:123: aBcAbcd \x00DEF ' | format_output "Abcd" "" "" 0);

@@ -1,4 +1,4 @@
-#### Linux bash script to find all lines or multi-line paragraphs containing a set of strings in filtered files of current folder and its subfolders recursively, in a simple way for most common usage, without need of complex regular expressions.
+#### Linux bash script to find all lines or multi-line paragraphs which contain a set of strings in filtered files of current folder and its subfolders recursively, in a simple way for most common usage, without need of complex regular expressions. Special characters and binary files contents can be searched. 
 
 ### USAGE:
 
@@ -6,7 +6,7 @@
 
 ### DESCRIPTION:
 
- The goal of this linux bash script (`fl`) is to simply and quickly display all the lines
+ The goal of this linux bash script (`fl` for "find lines") is to simply and quickly display all the lines
  or multi-line paragraphs matching the `str` parameters in all the files being filtered
  by the `pathstr` parameters, see below examples.  
  Special characters (like *, +, |, :, ...) do not need to be escaped, they are searched

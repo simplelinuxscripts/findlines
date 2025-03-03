@@ -58,8 +58,8 @@ Binary files contents are also searched, so that as many matching lines as possi
 => find all lines containing str in the .c files of current folder and its subfolders with lower/upper case ignored<br>
 <code>fl -p=1 .c str1 + str2</code><br>
 => find all 3 lines long paragraphs containing str1 and str2 in the .c files of current folder and its subfolders<br>
-<code>fl -p=1 .c str1 ++ str2 -- str3</code><br>
-=> find all 3 lines long paragraphs containing str1 and then str2 and then not str3 in the .c files of current folder and its subfolders<br>
+<code>fl -p=2 .c str1 ++ str2 -- str3</code><br>
+=> find all 5 lines long paragraphs containing str1 and then str2 and then not str3 in the .c files of current folder and its subfolders<br>
 <code>fl -w .c str</code><br>
 => find all lines containing the whole word "str" in the .c files of current folder and its subfolders<br><br>
 
@@ -75,7 +75,7 @@ Examples of searches with special characters:<br>
 Practical examples:<br>
 - search of several consecutive strings (line by line search):<br>
 <img src="example_1.png" style="width:64em;height: auto"><br>
-- search of several consecutive strings inside 3-line paragraphs:<br>
+- search of several consecutive strings in 3-line paragraphs:<br>
 <img src="example_2.png" style="width:64em;height: auto"><br><br>
 
 <b>HOW TO GET THIS BASH SCRIPT:</b><br>

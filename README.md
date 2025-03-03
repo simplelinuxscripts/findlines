@@ -6,7 +6,7 @@
 
 ### DESCRIPTION:
 
- The goal of this linux bash script (`fl` f/home/ghislain/DOCUMENTS/Informatique/Programmes/Linux/simplelinuxscripts/findlines/or "find lines") is to simply and quickly display all the lines
+ The goal of this linux bash script (`fl` for "find lines") is to simply and quickly display all the lines
  or multi-line paragraphs matching the `str` parameters in all the files being filtered
  by the `pathstr` parameters, see below examples.  
  Special characters (like *, +, |, :, ...) do not need to be escaped, they are searched

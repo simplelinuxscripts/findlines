@@ -23,14 +23,14 @@
     <main>
     <p>
 
-<b>Linux bash script to find all lines or multi-line paragraphs containing a set of strings in filtered files of current folder and its subfolders recursively, in a simple way for most common usage, without need of complex regular expressions.</b><br><br>
+<b>Linux bash script to find all lines or multi-line paragraphs which contain a set of strings in filtered files of current folder and its subfolders recursively, in a simple way for most common usage, without need of complex regular expressions. Special characters and binary files contents can be searched.</b><br><br>
 
 <b>USAGE:</b><br>
 <code>fl [-i] [-p=N] [-w] [pathstr|/pathstr]* str [+|-|++|-- str]*</code><br><br>
 
 <b>DESCRIPTION:</b><br>
 
-The goal of this linux bash script (<code>fl</code>) is to simply and quickly display all the lines or multi-line paragraphs matching the <code>str</code> parameters in all the files being filtered by the <code>pathstr</code> parameters, see below examples.<br>
+The goal of this linux bash script (<code>fl</code> for "find lines") is to simply and quickly display all the lines or multi-line paragraphs matching the <code>str</code> parameters in all the files being filtered by the <code>pathstr</code> parameters, see below examples.<br>
 Special characters (like *, +, |, :, ...) do not need to be escaped, they are searched directly as provided in the <code>str</code> parameters, which makes the usage very simple.<br>
 Binary files contents are also searched, so that as many matching lines as possible are displayed at the end and no occurrence is missed.<br><br>
 

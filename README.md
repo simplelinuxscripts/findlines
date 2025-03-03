@@ -6,7 +6,7 @@
 
 ### DESCRIPTION:
 
- The goal of this linux bash script (`fl` for "find lines") is to simply and quickly display all the lines
+ The goal of this linux bash script (`fl` f/home/ghislain/DOCUMENTS/Informatique/Programmes/Linux/simplelinuxscripts/findlines/or "find lines") is to simply and quickly display all the lines
  or multi-line paragraphs matching the `str` parameters in all the files being filtered
  by the `pathstr` parameters, see below examples.  
  Special characters (like *, +, |, :, ...) do not need to be escaped, they are searched
@@ -47,7 +47,7 @@
  `fl -p=1 .c str1 + str2`  
    => find all 3 lines long paragraphs containing str1 and str2 in the .c files
       of current folder and its subfolders  
- `fl -p=2 .c str1 ++ str2 -- str3`
+ `fl -p=2 .c str1 ++ str2 -- str3`  
    => find all 5 lines long paragraphs containing str1 and then str2 and then not str3
       in the .c files of current folder and its subfolders  
  `fl -w .c str`  
@@ -69,6 +69,6 @@
 Practical examples:  
 \- search of several consecutive strings (line by line search):  
 ![image](https://github.com/simplelinuxscripts/findlines/blob/9ff03d9f8a1dc0d564a61585a9f4b95e053352bf/example_1.png)
-\- search of several consecutive strings in 3-line paragraphs:
+\- search of several consecutive strings in 3-line paragraphs:  
 ![image](https://github.com/simplelinuxscripts/findlines/blob/9ff03d9f8a1dc0d564a61585a9f4b95e053352bf/example_2.png)  
 

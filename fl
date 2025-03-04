@@ -299,6 +299,7 @@ format_output() {
                 skip_occurrence_number_display=0
             elif [[ $paragraph_size_p -ne 0 ]]; then
                 if [[ "$input_str" == "$paragraph_separator" ]]; then
+                    IFS=$OLDIFS # restore IFS
                     continue
                 else
                     IFS="-"
@@ -308,6 +309,7 @@ format_output() {
                         reformatted_filepath_and_line_number_str="${filepath_and_line_number_str#./}" # remove leading ./
                         if [[ "$current_input_str" == "" ]]; then
                             echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str$NC"
+                            IFS=$OLDIFS # restore IFS
                             continue
                         fi
                     else
@@ -325,6 +327,7 @@ format_output() {
                             current_input_str="${input_str:filepath_and_line_number_length:length}" # substring
                             if [[ "$current_input_str" == "" ]]; then
                                 echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str$NC"
+                                IFS=$OLDIFS # restore IFS
                                 continue
                             fi
                         else

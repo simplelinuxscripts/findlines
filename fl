@@ -271,6 +271,7 @@ format_output() {
         OLDIFS=$IFS
         IFS=":"
         read -r filepath line_number current_input_str <<< "$input_str"
+        IFS=$OLDIFS # restore IFS
         if [[ "$line_number" =~ ^[0-9]+$ ]]; then
             if [[ "$current_input_str" == "" && $paragraph_size_p -eq 0 ]]; then
                 printError "unexpected empty matching line for $filepath:$line_number"
@@ -299,17 +300,16 @@ format_output() {
                 skip_occurrence_number_display=0
             elif [[ $paragraph_size_p -ne 0 ]]; then
                 if [[ "$input_str" == "$paragraph_separator" ]]; then
-                    IFS=$OLDIFS # restore IFS
                     continue
                 else
                     IFS="-"
                     read -r filepath line_number current_input_str <<< "$input_str"
+                    IFS=$OLDIFS # restore IFS
                     if [[ "$line_number" =~ ^[0-9]+$ ]]; then
                         filepath_and_line_number_str="$filepath-$line_number"
                         reformatted_filepath_and_line_number_str="${filepath_and_line_number_str#./}" # remove leading ./
                         if [[ "$current_input_str" == "" ]]; then
                             echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str$NC"
-                            IFS=$OLDIFS # restore IFS
                             continue
                         fi
                     else
@@ -327,7 +327,6 @@ format_output() {
                             current_input_str="${input_str:filepath_and_line_number_length:length}" # substring
                             if [[ "$current_input_str" == "" ]]; then
                                 echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str$NC"
-                                IFS=$OLDIFS # restore IFS
                                 continue
                             fi
                         else
@@ -342,7 +341,6 @@ format_output() {
                 exit 1
             fi
         fi
-        IFS=$OLDIFS # restore IFS
 
         if [[ "$last_filepath" != "$filepath" ]]; then
             # specific formatting (conditions on filepath to be adapted as needed - with below conditions, test files will be displayed in italic)

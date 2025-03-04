@@ -1068,15 +1068,6 @@ unit_tests() {
     check_test_condition "$res" "$exp" $((test_idx++))
     MAX_LEN_FOR_LINE_SPLIT=10000
 
-    # (multi-line)
-    res=$(echo -e "./a/b/c/file name.cpp:123: ABCDEFGHIJKLMNOPQRSTUVWXYZ\n./a/b/c/file name.cpp:123: aaABCDEFGHIJKLMNOPQRSTUVWXYZzz" | format_output "DEF" "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\tABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZ\n${FILEPATH_COLOR}2 a/b/c/file name.cpp:123${NC}\taaABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZzz")
-    check_test_condition "$res" "$exp" $((test_idx++))
-
-    res=$(echo -e "./a/b/c/file name.cpp:123: ABCDEFGHIJKLMNOPQRSTUVWXYZ\n./a/b/c/file name.cpp:123: aaABCDEFGHIJKLMNOPQRSTUVWXYZzz\n./a/b/c/file name.cpp:123:   aaaABCDEFGHIJKLMNOPQRSTUVWXYZzzz   " | format_output "def" "$grep_ignorecase_option" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\tABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZ\n${FILEPATH_COLOR}2 a/b/c/file name.cpp:123${NC}\taaABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZzz\n${FILEPATH_COLOR}3 a/b/c/file name.cpp:123${NC}\taaaABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZzzz")
-    check_test_condition "$res" "$exp" $((test_idx++))
-
     test_idx=700
     # (paragraphs)
     res=$(echo "./a/b/c/file name.cpp:123:  xxxxxxx  " | format_output "xxx" "" "" 1);
@@ -1105,6 +1096,28 @@ unit_tests() {
     else
         echo "ERROR $((test_idx++))"
     fi
+
+    test_idx=800
+    # (multi-line)
+    res=$(echo -e "./a/b/c/file name.cpp:123: ABCDEFGHIJKLMNOPQRSTUVWXYZ\n./a/b/c/file name.cpp:123: aaABCDEFGHIJKLMNOPQRSTUVWXYZzz" | format_output "DEF" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\tABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZ\n${FILEPATH_COLOR}2 a/b/c/file name.cpp:123${NC}\taaABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZzz")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo -e "./a/b/c/file name.cpp:123: ABCDEFGHIJKLMNOPQRSTUVWXYZ\n./a/b/c/file name.cpp:123: aaABCDEFGHIJKLMNOPQRSTUVWXYZzz\n./a/b/c/file name.cpp:123:   aaaABCDEFGHIJKLMNOPQRSTUVWXYZzzz   " | format_output "def" "$grep_ignorecase_option" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\tABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZ\n${FILEPATH_COLOR}2 a/b/c/file name.cpp:123${NC}\taaABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZzz\n${FILEPATH_COLOR}3 a/b/c/file name.cpp:123${NC}\taaaABC${SOURCE_COLOR}DEF${NC}GHIJKLMNOPQRSTUVWXYZzzz")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo -e "./a/b/c/file name.cpp-123- xAbCDEF GHIJKLMNOPQRSTUVWXYZ\n./a/b/c/file name.cpp:124: a,ABCDEF,GHIJKLMNOPQRSTUVWXYZzz\n./a/b/c/file name.cpp-125-   aaaabcdefGHIJKLMNOPQRSTUVWXYZzzz   " | format_output "aBcDeF" "$grep_ignorecase_option" "" 1);
+    exp=$(echo -e "  ${FILEPATH_COLOR}a/b/c/file name.cpp-123${NC}\t x${SOURCE_COLOR}AbCDEF${NC} GHIJKLMNOPQRSTUVWXYZ\n${FILEPATH_COLOR}1 a/b/c/file name.cpp:124${NC}\t a,${SOURCE_COLOR}ABCDEF${NC},GHIJKLMNOPQRSTUVWXYZzz\n  ${FILEPATH_COLOR}a/b/c/file name.cpp-125${NC}\t   aaa${SOURCE_COLOR}abcdef${NC}GHIJKLMNOPQRSTUVWXYZzzz\n")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo -e "./a/b/c/file name.cpp-123-\n./a/b/c/file name.cpp:124: a,ABCDEF,GHIJKLMNOPQRSTUVWXYZzz\n./a/b/c/file name.cpp-125-   aaaabcdefGHIJKLMNOPQRSTUVWXYZzzz   " | format_output "aBcDeF" "$grep_ignorecase_option" "" 1);
+    exp=$(echo -e "  ${FILEPATH_COLOR}a/b/c/file name.cpp-123${NC}\n${FILEPATH_COLOR}1 a/b/c/file name.cpp:124${NC}\t a,${SOURCE_COLOR}ABCDEF${NC},GHIJKLMNOPQRSTUVWXYZzz\n  ${FILEPATH_COLOR}a/b/c/file name.cpp-125${NC}\t   aaa${SOURCE_COLOR}abcdef${NC}GHIJKLMNOPQRSTUVWXYZzzz\n")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo -e "./a/b/c/file name.cpp-123- xAbCDEF GHIJKLMNOPQRSTUVWXYZ\n./a/b/c/file name.cpp:124: a,ABCDEF,GHIJKLMNOPQRSTUVWXYZzz\n./a/b/c/file name.cpp-125-   aaaabcdefGHIJKLMNOPQRSTUVWXYZzzz   " | format_output "aBcDeF" "$grep_ignorecase_option" "$grep_word_option" 1);
+    exp=$(echo -e "  ${FILEPATH_COLOR}a/b/c/file name.cpp-123${NC}\t xAbCDEF GHIJKLMNOPQRSTUVWXYZ\n${FILEPATH_COLOR}1 a/b/c/file name.cpp:124${NC}\t a,${SOURCE_COLOR}ABCDEF${NC},GHIJKLMNOPQRSTUVWXYZzz\n  ${FILEPATH_COLOR}a/b/c/file name.cpp-125${NC}\t   aaaabcdefGHIJKLMNOPQRSTUVWXYZzzz\n")
+    check_test_condition "$res" "$exp" $((test_idx++))
 
     multiline_str=$(echo -e "AAA\nBBB\nCCC\n$paragraph_separator\nDDD\nEEE\n\n$paragraph_separator\nFFF\nGGG\nHHH")
     separate_paragraph_lines_command_args="s/${paragraph_line_separator}/\n/g" # code duplicated from actual code

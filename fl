@@ -63,7 +63,7 @@
 #  - Special characters can be searched directly, for example
 #    fl "(a*b+[(x/y)-z] || d == e & f)" will search exactly this string without need to escape
 #    the special characters.
-#  - Linux shell's special characters \, $ and ` shall be escaped with \\, \$ and \` respectively.
+#  - Linux shell's special characters \, $, ` and " shall be escaped with \\, \$, \` and \" respectively.
 #    For example fl "\\xxx\$" will search all lines containing "\xxx$" in all files.
 #  - Special characters can also be searched directly with their ASCII code, for example:
 #    fl $'\x09' will search all lines containing tab characters (\t) in all files,
@@ -272,6 +272,8 @@ format_output() {
         IFS=":"
         read -r filepath line_number current_input_str <<< "$input_str"
         IFS=$OLDIFS # restore IFS
+        filepath_extracted=0
+        filepath_extracted_par=0
         if [[ "$line_number" =~ ^[0-9]+$ ]]; then
             if [[ "$current_input_str" == "" && $paragraph_size_p -eq 0 ]]; then
                 printError "unexpected empty matching line for $filepath:$line_number"
@@ -280,13 +282,14 @@ format_output() {
             filepath_and_line_number_str="$filepath:$line_number"
             reformatted_filepath_and_line_number_str="${filepath_and_line_number_str#./}" # remove leading ./
             skip_occurrence_number_display=0
+            filepath_extracted=1
         else
             # try slower method
             filepath_and_line_number_str=$(grep --text -o -P "^\./.*?:[0-9]+:" <<< "$input_str") # Perl regexp is used for non-greedy mode (not supported by Extended Regular Expressions with grep -E)
             filepath_and_line_number_length=${#filepath_and_line_number_str}
             if [[ $filepath_and_line_number_length -ne 0 ]]; then
                 reformatted_filepath_and_line_number_str="${filepath_and_line_number_str#./}" # remove leading ./
-                reformatted_filepath_and_line_number_str="${reformatted_filepath_and_line_number_str%:}"  # remove ending :
+                reformatted_filepath_and_line_number_str="${reformatted_filepath_and_line_number_str%:}" # remove ending :
                 line_number_with_separators=$(grep -o -E ":[0-9]+:$" <<< "$filepath_and_line_number_str")
                 line_number_with_separators_length=${#line_number_with_separators}
                 idx=$((filepath_and_line_number_length - line_number_with_separators_length))
@@ -294,52 +297,63 @@ format_output() {
                 length=$((input_str_length - filepath_and_line_number_length))
                 current_input_str="${input_str:filepath_and_line_number_length:length}" # substring
                 if [[ "$current_input_str" == "" && $paragraph_size_p -eq 0 ]]; then
-                    printError "unexpected empty matching line for $filepath:$line_number"
+                    printError "unexpected empty matching line for $reformatted_filepath_and_line_number_str"
                     exit 1
                 fi
                 skip_occurrence_number_display=0
-            elif [[ $paragraph_size_p -ne 0 ]]; then
-                if [[ "$input_str" == "$paragraph_separator" ]]; then
-                    continue
+                filepath_extracted=1
+            fi
+        fi
+        if [[ $paragraph_size_p -ne 0 ]]; then
+            if [[ "$input_str" == "$paragraph_separator" ]]; then
+                continue
+            else
+                IFS="-"
+                read -r filepath_par line_number_par current_input_str_par <<< "$input_str"
+                IFS=$OLDIFS # restore IFS
+                if [[ "$line_number_par" =~ ^[0-9]+$ ]]; then
+                    filepath_and_line_number_str="$filepath_par-$line_number_par"
+                    reformatted_filepath_and_line_number_str_par="${filepath_and_line_number_str#./}" # remove leading ./
+                    if [[ "$current_input_str_par" == "" ]]; then
+                        echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str_par$NC"
+                        continue
+                    fi
+                    filepath_extracted_par=1
                 else
-                    IFS="-"
-                    read -r filepath line_number current_input_str <<< "$input_str"
-                    IFS=$OLDIFS # restore IFS
-                    if [[ "$line_number" =~ ^[0-9]+$ ]]; then
-                        filepath_and_line_number_str="$filepath-$line_number"
-                        reformatted_filepath_and_line_number_str="${filepath_and_line_number_str#./}" # remove leading ./
-                        if [[ "$current_input_str" == "" ]]; then
-                            echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str$NC"
+                    # try slower method
+                    filepath_and_line_number_str=$(grep --text -o -P "^\./.*?-[0-9]+-" <<< "$input_str") # Perl regexp is used for non-greedy mode (not supported by Extended Regular Expressions with grep -E)
+                    filepath_and_line_number_length=${#filepath_and_line_number_str}
+                    if [[ $filepath_and_line_number_length -ne 0 ]]; then
+                        reformatted_filepath_and_line_number_str_par="${filepath_and_line_number_str#./}" # remove leading ./
+                        reformatted_filepath_and_line_number_str_par="${reformatted_filepath_and_line_number_str_par%-}" # remove ending -
+                        line_number_with_separators=$(grep -o -E "\-[0-9]+-$" <<< "$filepath_and_line_number_str")
+                        line_number_with_separators_length=${#line_number_with_separators}
+                        idx=$((filepath_and_line_number_length - line_number_with_separators_length))
+                        filepath_par="${filepath_and_line_number_str:0:idx}" # substring
+                        length=$((input_str_length - filepath_and_line_number_length))
+                        current_input_str_par="${input_str:filepath_and_line_number_length:length}" # substring
+                        if [[ "$current_input_str_par" == "" ]]; then
+                            echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str_par$NC"
                             continue
                         fi
-                    else
-                        # try slower method
-                        filepath_and_line_number_str=$(grep --text -o -P "^\./.*?-[0-9]+-" <<< "$input_str") # Perl regexp is used for non-greedy mode (not supported by Extended Regular Expressions with grep -E)
-                        filepath_and_line_number_length=${#filepath_and_line_number_str}
-                        if [[ $filepath_and_line_number_length -ne 0 ]]; then
-                            reformatted_filepath_and_line_number_str="${filepath_and_line_number_str#./}" # remove leading ./
-                            reformatted_filepath_and_line_number_str="${reformatted_filepath_and_line_number_str%-}"  # remove ending -
-                            line_number_with_separators=$(grep -o -E "\-[0-9]+-$" <<< "$filepath_and_line_number_str")
-                            line_number_with_separators_length=${#line_number_with_separators}
-                            idx=$((filepath_and_line_number_length - line_number_with_separators_length))
-                            filepath="${filepath_and_line_number_str:0:idx}" # substring
-                            length=$((input_str_length - filepath_and_line_number_length))
-                            current_input_str="${input_str:filepath_and_line_number_length:length}" # substring
-                            if [[ "$current_input_str" == "" ]]; then
-                                echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str$NC"
-                                continue
-                            fi
-                        else
-                            printError "format_output error: cannot extract filepath and line number in paragraph mode from \"$input_str\""
-                            exit 1
-                        fi
+                        filepath_extracted_par=1
                     fi
+                fi
+            fi
+            if [[ $filepath_extracted_par -eq 1 ]]; then
+                # in paragraph mode, select shortest possible filepath so that all occurrences will be properly highlighted
+                # and filepath will never contain non-printable characters
+                if [[ $filepath_extracted -eq 0 || ${#filepath_par} -lt ${#filepath} ]]; then
+                    filepath="$filepath_par"
+                    current_input_str="$current_input_str_par"
+                    reformatted_filepath_and_line_number_str="$reformatted_filepath_and_line_number_str_par"
                     skip_occurrence_number_display=1
                 fi
-            else
-                printError "format_output error: cannot extract filepath and line number from \"$input_str\""
-                exit 1
             fi
+        fi
+        if [[ $filepath_extracted -eq 0 && $filepath_extracted_par -eq 0 ]]; then
+            printError "format_output error: cannot extract filepath and line number from \"$input_str\""
+            exit 1
         fi
 
         if [[ "$last_filepath" != "$filepath" ]]; then
@@ -370,12 +384,19 @@ format_output() {
                 # check if current_input_str contains non printable characters (binary line detection)
                 # Notes:
                 # - non-ASCII characters (<=> command "grep -qE $'[^\x01-\x7F]';") are multi-byte and are supported by this script so are not considered as non printable
-                # - among others \r characters are also supported (aka Ctrl+M or "carriage return" characters = \x0D in ASCII, typically present in Windows files)
+                # - \r characters are supported only when at line end (aka Ctrl+M or "carriage return" characters = \x0D in ASCII, typically present in Windows files at line ends) because can lead to invalid display
                 # - impossible to check \x00 presence in a string with a bash script => \x00 is considered as printable and a warning message will be displayed if needed
                 if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< "$current_input_str")" != "" ]]; then # code duplicated in unit tests (a little slower but better than tr -d '[:print:][:blank:]\r§µ¨£°²' which operates based on single-byte ASCII characters by default)
                     non_printable_status=1
                 else
-                    non_printable_status=0
+                    # check \r character presence at line end
+                    tmp_current_input_str="${current_input_str%$'\n'}" # remove ending \n
+                    tmp_current_input_str="${tmp_current_input_str%$'\r'}" # remove ending \r because can lead to invalid display
+                    if [[ "$tmp_current_input_str" == *$'\r'* ]]; then
+                        non_printable_status=1
+                    else
+                        non_printable_status=0
+                    fi
                 fi
             fi
             last_filepath="$filepath"
@@ -463,7 +484,7 @@ format_output() {
 
         # Case some characters are non printable
         else
-            if [[ "$last_binary_filepath" != "$filepath" ]]; then
+            if [[ "$last_binary_filepath" != "$filepath" && $filepath_extracted -eq 1 ]]; then
                 binary_line_msg="${highlight_color}binary line(s)${NC}"
                 if [[ $skip_occurrence_number_display -eq 0 ]]; then
                     total_nb_lines_displayed=$((total_nb_lines_displayed + 1))
@@ -947,16 +968,31 @@ unit_tests() {
     exp=$(echo -e "${exp}A${HEADER_COLOR}B\ta${NC}bcDEF")
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    # (\x0D=\r shall be ignored for binary line detection)
-    res=$(echo $'./a/b/c/file name.hpp:123:AB\x0DabcDE\rF' | format_output $'\x0D' "$grep_ignorecase_option" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.hpp:123${NC}\t")
-    exp=$(echo -e "${exp}AB${HEADER_COLOR}\r${NC}abcDE${HEADER_COLOR}\r${NC}F")
+    # (\x0D=\r shall be ignored for binary line detection when at line end)
+    res=$(echo $'./a/b/c/file name.xxx:123:AB\x0DabcDE\rFGH' | format_output $'\x0D' "$grep_ignorecase_option" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC} ${OTHER_COLOR}binary line(s)${NC}")
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    # (\x0D=\r shall be ignored for binary line detection)
-    res=$(echo $'./a/b/c/file name.hpp:123:AB\x0DabcDEF' | format_output $'b\x0Da' "$grep_ignorecase_option" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.hpp:123${NC}\t")
-    exp=$(echo -e "${exp}A${HEADER_COLOR}B\ra${NC}bcDEF")
+    # (\x0D=\r shall be ignored for binary line detection when at line end)
+    res=$(echo $'./a/b/c/file name.xxx:123:AB\rabcDE\r' | format_output $'\x0D' "$grep_ignorecase_option" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC} ${OTHER_COLOR}binary line(s)${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (\x0D=\r shall be ignored for binary line detection when at line end)
+    res=$(echo $'./a/b/c/file name.xxx:123:AB\rabcDE\x0D' | format_output "AB" "$grep_ignorecase_option" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC} ${OTHER_COLOR}binary line(s)${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (\x0D=\r shall be ignored for binary line detection when at line end)
+    res=$(echo $'./a/b/c/file name.xxx:123:ABabcDE\r' | format_output $'\x0D' "$grep_ignorecase_option" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC}\t")
+    exp=$(echo -e "${exp}ABabcDE${OTHER_COLOR}\r${NC}")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (\x0D=\r shall be ignored for binary line detection when at line end)
+    res=$(echo $'./a/b/c/file name.xxx:123:ABabcDE\r' | format_output "AB" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC}\t")
+    exp=$(echo -e "${exp}${OTHER_COLOR}AB${NC}abcDE")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     test_idx=500
@@ -987,10 +1023,6 @@ unit_tests() {
 
     res=$(echo "./x:y:1:aBc - --  ----- edF" | format_output "--" "" "" 0);
     exp=$(echo -e "${FILEPATH_COLOR}1 x:y:1${NC}\taBc - ${OTHER_COLOR}--${NC}  ${OTHER_COLOR}--${NC}${OTHER_COLOR}--${NC}- edF")
-    check_test_condition "$res" "$exp" $((test_idx++))
-
-    res=$(echo "./a/b/c/file name.cpp-123-xxx:456:aBc - --  ----- edF" | format_output "--" "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp-123-xxx:456${NC}\taBc - ${OTHER_COLOR}--${NC}  ${OTHER_COLOR}--${NC}${OTHER_COLOR}--${NC}- edF")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo "./a/b/c/file name.cpp:xxx:123" | format_output "B" "" "" 0 2>&1);
@@ -1082,16 +1114,37 @@ unit_tests() {
     exp=$(echo -e "  ${FILEPATH_COLOR}a/b/c/file name *+ ~|()!?:12  12a-1abc-456a-.hpp-123${NC}\t  aBc ${HEADER_COLOR}--${NC}  78\nno occurrence")
     check_test_condition "$res" "$exp" $((test_idx++))
 
+    # (file path and line number extraction in paragraph mode)
+    res=$(echo "./a/b/c/file name.cpp-123-456-xxxxxxx" | format_output "xxx" "" "" 2);
+    exp=$(echo -e "  ${FILEPATH_COLOR}a/b/c/file name.cpp-123${NC}\t456-${SOURCE_COLOR}xxx${NC}${SOURCE_COLOR}xxx${NC}x\nno occurrence")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp-abc-456-xxxxxxx" | format_output "xxx" "" "" 2);
+    exp=$(echo -e "  ${FILEPATH_COLOR}a/b/c/file name.cpp-abc-456${NC}\t${OTHER_COLOR}xxx${NC}${OTHER_COLOR}xxx${NC}x\nno occurrence")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp-123-xxx:456:aBc - --  ----- edF" | format_output "--" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp-123-xxx:456${NC}\taBc - ${OTHER_COLOR}--${NC}  ${OTHER_COLOR}--${NC}${OTHER_COLOR}--${NC}- edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp-123-xxx:456:aBc - --  ----- edF" | format_output "--" "" "" 2);
+    exp=$(echo -e "  ${FILEPATH_COLOR}a/b/c/file name.cpp-123${NC}\txxx:456:aBc - ${SOURCE_COLOR}--${NC}  ${SOURCE_COLOR}--${NC}${SOURCE_COLOR}--${NC}- edF\nno occurrence")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    res=$(echo "./a/b/c/file name.cpp:123:xxx-456-aBc - --  ----- edF" | format_output "--" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\txxx-456-aBc - ${SOURCE_COLOR}--${NC}  ${SOURCE_COLOR}--${NC}${SOURCE_COLOR}--${NC}- edF")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
     # (extraction error in paragraph mode)
     res=$(echo "./a/b/c/file name.cpp:abc:def-" | format_output "B" "" "" 2 2>&1);
-    if [[ "$res" == *"cannot extract filepath and line number in paragraph mode from"* ]]; then
+    if [[ "$res" == *"cannot extract filepath and line number from"* ]]; then
         echo "OK $((test_idx++))"
     else
         echo "ERROR $((test_idx++))"
     fi
     # (extraction error in paragraph mode)
     res=$(echo "./a/b/c/file name.cpp:abc:def--" | format_output "B" "" "" 2 2>&1);
-    if [[ "$res" == *"cannot extract filepath and line number in paragraph mode from"* ]]; then
+    if [[ "$res" == *"cannot extract filepath and line number from"* ]]; then
         echo "OK $((test_idx++))"
     else
         echo "ERROR $((test_idx++))"
@@ -1143,9 +1196,9 @@ unit_tests() {
     # manual tests shall cover all +/++/-/-- operations with all options -i/-p=N/-w
     # so that they work on a file containing the complex sequence of special characters
     # (once or several times on the same line / in the same paragraph when using option -p=N):
-    # aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ $$ ` ?? || :: ,, ;; ** )) ]] }}   \\ \ a\b\t\n  --''x' §°µùéèàâêîôûŷäëïöüÿãẽĩõũỹ%£@&¨#~²
+    # aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ $$ ` ?? || :: ,, ;; ** )) ]] }}   \\ \ a\b\t\n  "" --''x' §°µùéèàâêîôûŷäëïöüÿãẽĩõũỹ%£@&¨#~²
     # => the following commands shall work:
-    # fl "aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ \$\$ \` ?? || :: ,, ;; ** )) ]] }}   \\\\ \\ a\\b\\t\\n  --''x' §°µùéèàâêîôûŷäëïöüÿãẽĩõũỹ%£@&¨#~²"
+    # fl "aa zz AA ZZ 00 99 __ ++ == // (( [[ {{ ... ~~ ^^ \$\$ \` ?? || :: ,, ;; ** )) ]] }}   \\\\ \\ a\\b\\t\\n  \"\" --''x' §°µùéèàâêîôûŷäëïöüÿãẽĩõũỹ%£@&¨#~²"
     # fl [options] "this test string" +/++/-/-- "this test string"
     # Note: ! character can also be searched if history expansion feature is temporarily disabled (with set +H)
 }
@@ -1312,12 +1365,12 @@ for arg in "$@"; do
                 printError "error: character \"$character_separator\" is used for separators in paragraph mode so shall not be at the start or end of parameters"
                 exit 1
             fi
-            reformatted_arg=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g')
+            reformatted_arg=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g' | sed 's/"/\\"/g')
             if [[ $parameter_idx -eq $first_str_parameter_idx ]]; then
                 first_str_to_find="$arg"
-                reformatted_first_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g')
+                reformatted_first_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g' | sed 's/"/\\"/g')
                 last_str_to_find="$arg"
-                reformatted_last_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g')
+                reformatted_last_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g' | sed 's/"/\\"/g')
                 main_search_command="grep -E --text --with-filename -n $grep_ignorecase_option_applied$grep_word_option_applied$paragraph_option_applied-- \"$reformatted_arg\" "
             else
                 if [[ "$last_str_to_find" == "" ]]; then
@@ -1339,7 +1392,7 @@ for arg in "$@"; do
                         extra_search_command="$extra_search_command| grep -E --text $grep_ignorecase_option_applied-- \"$skip_line_info$reformatted_arg\" "
                     fi
                     last_str_to_find="$arg"
-                    reformatted_last_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g')
+                    reformatted_last_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g' | sed 's/"/\\"/g')
                 elif [[ $include_operator -eq 2 ]]; then
                     if [[ $first_extra_str -eq 0 && "$paragraph_option_applied" == "" ]]; then
                         if [[ "$last_str_to_find" != "$first_str_to_find" ]]; then
@@ -1357,7 +1410,7 @@ for arg in "$@"; do
                         fi
                     fi
                     last_str_to_find="$arg"
-                    reformatted_last_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g')
+                    reformatted_last_str_to_find=$(escape_special_chars "$arg" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g' | sed 's/"/\\"/g')
                 elif [[ $include_operator -eq 3 ]]; then
                     extra_search_command="$extra_search_command| grep -E --text -v $grep_ignorecase_option_applied-- \"$skip_line_info$reformatted_arg\" "
                     at_least_one_exclude_operator=1
@@ -1388,7 +1441,7 @@ fi
 ############
 
 SCRIPT_DIR=$(dirname "$0")
-reformatted_first_str_to_find=$(echo "$first_str_to_find" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g')
+reformatted_first_str_to_find=$(echo "$first_str_to_find" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g' | sed 's/"/\\"/g')
 trimmed_grep_ignorecase_option_applied="${grep_ignorecase_option_applied%"${grep_ignorecase_option_applied##*[![:space:]]}"}" # right trim
 trimmed_grep_word_option_applied="${grep_word_option_applied%"${grep_word_option_applied##*[![:space:]]}"}" # right trim
 format_command="| format_output \"$reformatted_first_str_to_find\" \"$trimmed_grep_ignorecase_option_applied\" \"$trimmed_grep_word_option_applied\" \"$paragraphsize\" | expand -t 4"

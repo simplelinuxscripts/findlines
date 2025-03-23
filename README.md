@@ -60,7 +60,7 @@
  \- Special characters can be searched directly, for example
    `fl "(a*b+[(x/y)-z] || d == e & f)"` will search exactly this string without need to escape
    the special characters.  
- \- Linux shell's special characters \\, \$ and \` shall be escaped with \\\\, \\\$ and \\\` respectively.
+ \- Linux shell's special characters \\, \$, \` and " shall be escaped with \\\\, \\\$, \\\` and \\" respectively.
     For example `fl "\\xxx\$"` will search all lines containing "\\xxx\$" in all files.  
  \- Special characters can also be searched directly with their ASCII code, for example:  
    `fl $'\x09'` will search all lines containing tab characters (\t) in all files,  

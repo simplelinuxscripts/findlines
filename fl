@@ -347,6 +347,10 @@ format_output() {
             printError "format_output error: cannot extract filepath and line number from \"$input_str\""
             exit 1
         fi
+        if [[ $current_input_str == "" ]]; then
+            echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str$NC"
+            continue
+        fi
 
         if [[ "$last_filepath" != "$filepath" ]]; then
             # specific formatting (conditions on filepath to be adapted as needed - with below conditions, test files will be displayed in italic)
@@ -399,9 +403,7 @@ format_output() {
 
             current_input_str_length=${#current_input_str}
 
-            if [[ $current_input_str_length -eq 0 ]]; then
-                separator=""
-            elif [[ $input_str_length -ge $MAX_LEN_FOR_LINE_SPLIT && $paragraph_size_p -eq 0 ]]; then
+            if [[ $input_str_length -ge $MAX_LEN_FOR_LINE_SPLIT && $paragraph_size_p -eq 0 ]]; then
                 leading_spaces="${current_input_str%%[^ ]*}"
                 leading_spaces_count=${#leading_spaces}
                 trailing_spaces="${current_input_str##*[^ ]}"

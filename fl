@@ -314,10 +314,6 @@ format_output() {
                 if [[ "$line_number_par" =~ ^[0-9]+$ ]]; then
                     filepath_and_line_number_str="$filepath_par-$line_number_par"
                     reformatted_filepath_and_line_number_str_par="${filepath_and_line_number_str#./}" # remove leading ./
-                    if [[ "$current_input_str_par" == "" ]]; then
-                        echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str_par$NC"
-                        continue
-                    fi
                     filepath_extracted_par=1
                 else
                     # try slower method
@@ -332,10 +328,6 @@ format_output() {
                         filepath_par="${filepath_and_line_number_str:0:idx}" # substring
                         length=$((input_str_length - filepath_and_line_number_length))
                         current_input_str_par="${input_str:filepath_and_line_number_length:length}" # substring
-                        if [[ "$current_input_str_par" == "" ]]; then
-                            echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str_par$NC"
-                            continue
-                        fi
                         filepath_extracted_par=1
                     fi
                 fi
@@ -407,7 +399,9 @@ format_output() {
 
             current_input_str_length=${#current_input_str}
 
-            if [[ $input_str_length -ge $MAX_LEN_FOR_LINE_SPLIT && $paragraph_size_p -eq 0 ]]; then
+            if [[ $current_input_str_length -eq 0 ]]; then
+                separator=""
+            elif [[ $input_str_length -ge $MAX_LEN_FOR_LINE_SPLIT && $paragraph_size_p -eq 0 ]]; then
                 leading_spaces="${current_input_str%%[^ ]*}"
                 leading_spaces_count=${#leading_spaces}
                 trailing_spaces="${current_input_str##*[^ ]}"

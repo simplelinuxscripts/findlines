@@ -344,26 +344,8 @@ format_output() {
             fi
         fi
         if [[ $filepath_extracted -eq 0 && $filepath_extracted_par -eq 0 ]]; then
-            # (duplicated code)
-            non_printable_status_2=0
-            if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< "$input_str")" != "" ]]; then # code duplicated in unit tests (a little slower but better than tr -d '[:print:][:blank:]\r§µ¨£°²' which operates based on single-byte ASCII characters by default)
-                non_printable_status_2=1
-            else
-                # check \r character presence at line end
-                tmp_input_str="${input_str%$'\n'}" # remove ending \n
-                tmp_input_str="${tmp_input_str%$'\r'}" # remove ending \r because can lead to invalid display
-                if [[ "$tmp_input_str" == *$'\r'* ]]; then
-                    non_printable_status_2=1
-                else
-                    non_printable_status_2=0
-                fi
-            fi
-            if [[ $non_printable_status_2 -eq 0 ]]; then
-                printError "format_output error: cannot extract filepath and line number from \"$input_str\""
-                exit 1
-            else
-                echo -e "$FILEPATH_COLOR$no_match cannot extract filepath and line number due to binary contents$NC"
-            fi
+            echo -e "$FILEPATH_COLOR$no_match cannot extract filepath and line number$NC"
+            continue
         fi
         if [[ $current_input_str == "" ]]; then
             echo -e "$(display_spaces ${#total_nb_lines_displayed}) $FILEPATH_COLOR$reformatted_filepath_and_line_number_str$NC"
@@ -400,7 +382,6 @@ format_output() {
                 # - non-ASCII characters (<=> command "grep -qE $'[^\x01-\x7F]';") are multi-byte and are supported by this script so are not considered as non printable
                 # - \r characters are supported only when at line end (aka Ctrl+M or "carriage return" characters = \x0D in ASCII, typically present in Windows files at line ends) because can lead to invalid display
                 # - impossible to check \x00 presence in a string with a bash script => \x00 is considered as printable and a warning message will be displayed if needed
-                # (duplicated code)
                 if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< "$current_input_str")" != "" ]]; then # code duplicated in unit tests (a little slower but better than tr -d '[:print:][:blank:]\r§µ¨£°²' which operates based on single-byte ASCII characters by default)
                     non_printable_status=1
                 else

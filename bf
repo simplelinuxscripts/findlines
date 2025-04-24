@@ -93,7 +93,7 @@ SCRIPT_DIR=$(dirname "$0")
 find_files_command="$SCRIPT_DIR/ff -noformatting $pathstrs_list_for_call"
 tabs=$'\x09\x09'
 eval "$find_files_command" | sed 's|^\./||' | rsync -auR $dry_run_option--out-format="%n${tabs}%l bytes" --stats --files-from=- . "$target_folder_for_call" | grep -Ev '/\s*[0-9]+ bytes$' | sed "/Number of deleted files:/s/.*/${BOLD}&${NC}/" | sed "/Number of regular files transferred:/s/.*/${BOLD}&${NC}/" | sed "/Total transferred file size:/s/.*/${BOLD}&${NC}/"
-# rsync folders structure, among which empty folders
+# backup folders structure, including empty folders
 rsync -dlptgoD $dry_run_option--include='*/' --exclude='*' . "$target_folder_for_call"
 
 echo

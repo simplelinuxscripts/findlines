@@ -68,7 +68,7 @@
 
 Practical examples:  
 \- search of several consecutive strings (line by line search):  
-![image](https://github.com/simplelinuxscripts/findlines/blob/9ff03d9f8a1dc0d564a61585a9f4b95e053352bf/example_1.png)  
+![image](https://github.com/simplelinuxscripts/findlines/blob/9ff03d9f8a1dc0d564a61585a9f4b95e053352bf/example_1.png)
 \- search of several consecutive strings in 3-line paragraphs:  
 ![image](https://github.com/simplelinuxscripts/findlines/blob/9ff03d9f8a1dc0d564a61585a9f4b95e053352bf/example_2.png)  
 

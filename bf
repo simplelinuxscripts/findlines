@@ -5,9 +5,11 @@
 # Back up filtered files of current folder and its subfolders into a target folder
 #
 # USAGE:
-#  bf [-dry-run] [pathstr|/pathstr]* target_folder
-# with [pathstr|/pathstr]* defined in ff script.
-# Option -dry-run simulates the backup without doing anything.
+#  bf [-dry-run] [-files-only] [pathstr|/pathstr]* target_folder
+# with [pathstr|/pathstr]* defined in ff script
+# and options:
+# -dry-run: simulate the backup without doing anything
+# -files-only: only backup files but not (sub)folders structure
 #
 ###################################################################################################
 
@@ -34,6 +36,8 @@ fi
 dry_run=0
 dry_run_str=""
 dry_run_option=""
+files_only=0
+files_only_str=""
 pathstrs_list=""
 pathstrs_list_for_call=""
 target_folder=""
@@ -45,6 +49,9 @@ for arg in "$@"; do
         dry_run=1
         dry_run_str=" [DRY RUN]"
         dry_run_option="--dry-run "
+    elif [[ "$arg" == "-files-only" && $files_only -eq 0 ]]; then
+        files_only=1
+        files_only_str=" [FILES ONLY]"
     elif [[ $parameter_nb -lt $# ]]; then
         if echo "$arg" | grep -q " "; then
             pathstrs_list="$pathstrs_list\"$arg\" "
@@ -74,7 +81,7 @@ if [[ "$pathstrs_list" != "" ]]; then
 else
     echo -n "all files "
 fi
-echo "to $target_folder$dry_run_str"
+echo "to $target_folder$dry_run_str$files_only_str"
 
 if ! [[ -d "$target_folder_for_call" ]]; then
     printError "error: target folder $target_folder_for_call does not exist"
@@ -93,8 +100,10 @@ SCRIPT_DIR=$(dirname "$0")
 find_files_command="$SCRIPT_DIR/ff -noformatting $pathstrs_list_for_call"
 tabs=$'\x09\x09'
 eval "$find_files_command" | sed 's|^\./||' | rsync -auRl $dry_run_option--out-format="%n${tabs}%l bytes" --stats --files-from=- . "$target_folder_for_call" | grep -Ev '/\s*[0-9]+ bytes$' | sed "/Number of deleted files:/s/.*/${BOLD}&${NC}/" | sed "/Number of regular files transferred:/s/.*/${BOLD}&${NC}/" | sed "/Total transferred file size:/s/.*/${BOLD}&${NC}/"
-# backup folders structure, including empty folders
-rsync -av $dry_run_option--include='*/' --exclude='*' . "$target_folder_for_call"
+if [[ $files_only -eq 0 ]]; then
+    # backup (sub)folders structure, including empty folders
+    rsync -av $dry_run_option--include='*/' --exclude='*' . "$target_folder_for_call"
+fi
 
 echo
 echo "Do you want to compare current and backup folders? (Y/N)"

@@ -9,7 +9,14 @@
 # with [pathstr|/pathstr]* defined in ff script
 # and options:
 # -dry-run: simulate the backup without doing anything
-# -files-only: only backup files but not (sub)folders structure
+# -files-only: only backup files but not full (sub)folders structure
+#
+# EXAMPLES:
+#  bf target_folder
+#    => back up all files of current folder and its subfolders into target_folder, including 
+#       full (sub)folders structure
+#  bf -files-only .c .h target_folder
+#    => back up the .c or .h files of current folder and its subfolders into target_folder
 #
 ###################################################################################################
 
@@ -101,7 +108,7 @@ find_files_command="$SCRIPT_DIR/ff -noformatting $pathstrs_list_for_call"
 tabs=$'\x09\x09'
 eval "$find_files_command" | sed 's|^\./||' | rsync -auRl $dry_run_option--out-format="%n${tabs}%l bytes" --stats --files-from=- . "$target_folder_for_call" | grep -Ev '/\s*[0-9]+ bytes$' | sed "/Number of deleted files:/s/.*/${BOLD}&${NC}/" | sed "/Number of regular files transferred:/s/.*/${BOLD}&${NC}/" | sed "/Total transferred file size:/s/.*/${BOLD}&${NC}/"
 if [[ $files_only -eq 0 ]]; then
-    # backup (sub)folders structure, including empty folders
+    # backup full (sub)folders structure, including empty folders
     rsync -av $dry_run_option--include='*/' --exclude='*' . "$target_folder_for_call"
 fi
 

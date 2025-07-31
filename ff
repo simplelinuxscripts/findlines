@@ -8,11 +8,13 @@
 #  ff [-print0|-noformatting] [pathstr|/pathstr]*
 #
 # EXAMPLES:
+#  ff
+#    => find all files of current folder and its subfolders
 #  ff .c .h
 #    => find the .c or .h files of current folder and its subfolders
 #  ff mypathstr
 #    => find the files of current folder and its subfolders
-#      whose path contains "mypathstr" ("mypathstr" in file or folder names)
+#       whose path contains "mypathstr" ("mypathstr" in file or folder names)
 #  ff .c .h /mypathstr
 #    => find the .c or .h files of current folder and its subfolders
 #       whose path does not contain "mypathstr" ("mypathstr" not in file and folder names)
@@ -94,9 +96,24 @@ fi
 
 if [[ "$print0_option" == "" ]]; then
     if [[ $noformatting -eq 0 ]]; then # formatting
-        search_command="find . \( -type f -o \( -type l ! -xtype d \) \) $included_names_list$excluded_names_list-print0 | xargs -0 -r ls -l"
+        search_command="find . \( -type f -o \( -type l ! -xtype d \) \) $included_names_list$excluded_names_list-print0 | xargs -0 -r ls -l --quoting-style=shell"
         # echo "search_command=$search_command"
-        eval "$search_command" | sed 's/^\([^ ]* \)[^ ]* [^ ]* [^ ]* /\1/' | nl -w 1 -s ' ' | sed -E "s|^([0-9]+)|\x1b[33m\1${NC}|" | sed -E "s|(./.*)$|${BOLD}\1${NC}|" | sed "s|\./||"
+        eval "$search_command" | awk '{
+                  # Print field 1 with a space
+                  printf "%s ", $1
+
+                  # Print fields 5 through 8 with space
+                  for (i = 5; i <= 8; i++) {
+                    printf "%s ", $i
+                  }
+
+                  # Insert tab
+                  printf "\t"
+
+                  # Find position in the original line where field 9 begins and print rest of the line
+                  pos = index($0, $9)
+                  print substr($0, pos)
+             }' | expand -t 2 | nl -w 1 -s ' ' | sed -E "s|^([0-9]+)|\x1b[33m\1${NC}|" | sed -E "s|(./.*)$|${BOLD}\1${NC}|" | sed "s|\./||"
     else # no formatting
         search_command="find . \( -type f -o \( -type l ! -xtype d \) \) $included_names_list$excluded_names_list"
         # echo "search_command=$search_command"

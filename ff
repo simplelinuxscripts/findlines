@@ -104,7 +104,7 @@ if [[ "$print0_option" == "" ]]; then
 
                   # Print fields 5 through 8 with space
                   for (i = 5; i <= 8; i++) {
-                    printf "%s ", $i
+                    printf "%s%s", $i, (i==8 ? "" : " ")
                   }
 
                   # Insert tab

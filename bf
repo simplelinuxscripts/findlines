@@ -13,8 +13,8 @@
 #
 # EXAMPLES:
 #  bf target_folder
-#    => back up all files of current folder and its subfolders into target_folder, including 
-#       full (sub)folders structure
+#    => back up all files of current folder and its subfolders into target_folder,
+#       including full (sub)folders structure
 #  bf -files-only .c .h target_folder
 #    => back up the .c or .h files of current folder and its subfolders into target_folder
 #

@@ -110,9 +110,9 @@ eval "$find_files_command" | sed 's|^\./||' | rsync -auRl $dry_run_option--out-f
 if [[ $files_only -eq 0 ]]; then
     # backup remaining folders:
     # - backup full (sub)folders structure, including empty folders
-    rsync -av $dry_run_option--include='*/' --exclude='*' . "$target_folder_for_call"
+    rsync -av $dry_run_option--include='*/' --exclude='*' . "$target_folder_for_call" > /dev/null
     # - backup symbolic links towards folders (not listed by ff)
-    find . \( -type l -a -xtype d \) -exec rsync -auRl $dry_run_option{} "$target_folder_for_call" \;
+    find . \( -type l -a -xtype d \) -exec rsync -auRl $dry_run_option{} "$target_folder_for_call" \;  > /dev/null
 fi
 
 echo

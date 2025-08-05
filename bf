@@ -109,7 +109,7 @@ tabs=$'\x09\x09'
 eval "$find_files_command" | sed 's|^\./||' | rsync -auRl $dry_run_option--out-format="%n${tabs}%l bytes" --stats --files-from=- . "$target_folder_for_call" | grep -Ev '/\s*[0-9]+ bytes$' | sed "/Number of deleted files:/s/.*/${BOLD}&${NC}/" | sed "/Number of regular files transferred:/s/.*/${BOLD}&${NC}/" | sed "/Total transferred file size:/s/.*/${BOLD}&${NC}/"
 if [[ $files_only -eq 0 ]]; then
     echo
-    echo "backup full (sub)folders structure$dry_run_str..."
+    echo "backup remaining (sub)folders structure$dry_run_str..."
     # - backup full (sub)folders structure, including empty folders
     rsync -av $dry_run_option--include='*/' --exclude='*' . "$target_folder_for_call" > /dev/null
     # - backup symbolic links towards folders (not listed by ff)

@@ -344,7 +344,7 @@ format_output() {
             fi
         fi
         if [[ $filepath_extracted -eq 0 && $filepath_extracted_par -eq 0 ]]; then
-            echo -e "$FILEPATH_COLOR$no_match cannot extract filepath and line number$NC"
+            echo -e "$FILEPATH_COLOR$no_match cannot extract filepath and line number from ${input_str:0:50}...$NC"
             continue
         fi
         if [[ $current_input_str == "" ]]; then
@@ -1022,7 +1022,7 @@ unit_tests() {
     check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo "./a/b/c/file name.cpp:xxx:123" | format_output "B" "" "" 0 2>&1);
-    if [[ "$res" == *"cannot extract filepath and line number from"* ]]; then
+    if [[ "$res" == *"cannot extract filepath and line number"* ]]; then
         echo "OK $((test_idx++))"
     else
         echo "ERROR $((test_idx++))"
@@ -1133,14 +1133,14 @@ unit_tests() {
 
     # (extraction error in paragraph mode)
     res=$(echo "./a/b/c/file name.cpp:abc:def-" | format_output "B" "" "" 2 2>&1);
-    if [[ "$res" == *"cannot extract filepath and line number from"* ]]; then
+    if [[ "$res" == *"cannot extract filepath and line number"* ]]; then
         echo "OK $((test_idx++))"
     else
         echo "ERROR $((test_idx++))"
     fi
     # (extraction error in paragraph mode)
     res=$(echo "./a/b/c/file name.cpp:abc:def--" | format_output "B" "" "" 2 2>&1);
-    if [[ "$res" == *"cannot extract filepath and line number from"* ]]; then
+    if [[ "$res" == *"cannot extract filepath and line number"* ]]; then
         echo "OK $((test_idx++))"
     else
         echo "ERROR $((test_idx++))"
@@ -1318,7 +1318,7 @@ else
 fi
 if [[ $paragraphsize -ge 1 ]]; then
     paragraph_option_applied="-C$paragraphsize --group-separator=\"$paragraph_separator\" "
-    gather_paragraph_lines_command="| gather_paragraph_lines "
+    gather_paragraph_lines_command="| cat -v | gather_paragraph_lines " # cat -v is necessary because read -r is not binary safe
     separate_paragraph_lines_command_args="s/${paragraph_line_separator}/\n/g" # code duplicated in unit tests
     separate_paragraph_lines_command="| sed \"$separate_paragraph_lines_command_args\" " # code duplicated in unit tests
     skip_line_info=""
@@ -1440,7 +1440,7 @@ SCRIPT_DIR=$(dirname "$0")
 reformatted_first_str_to_find=$(echo "$first_str_to_find" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g' | sed 's/"/\\"/g')
 trimmed_grep_ignorecase_option_applied="${grep_ignorecase_option_applied%"${grep_ignorecase_option_applied##*[![:space:]]}"}" # right trim
 trimmed_grep_word_option_applied="${grep_word_option_applied%"${grep_word_option_applied##*[![:space:]]}"}" # right trim
-format_command="| format_output \"$reformatted_first_str_to_find\" \"$trimmed_grep_ignorecase_option_applied\" \"$trimmed_grep_word_option_applied\" \"$paragraphsize\" | expand -t 4"
+format_command="| cat -v | format_output \"$reformatted_first_str_to_find\" \"$trimmed_grep_ignorecase_option_applied\" \"$trimmed_grep_word_option_applied\" \"$paragraphsize\" | expand -t 4" # cat -v is necessary because read -r is not binary safe
 if [[ $paragraphsize -ge 1 && "$extra_search_command" != "" ]]; then
     search_command="$SCRIPT_DIR/ff -print0 $pathstrs_list_for_call| xargs -0 $main_search_command$gather_paragraph_lines_command$extra_search_command$separate_paragraph_lines_command$format_command"
 else

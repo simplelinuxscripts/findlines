@@ -377,23 +377,28 @@ format_output() {
             # other files
             else
                 highlight_color="$OTHER_COLOR$specific_formatting"
+                non_printable_status=0
+
+                # below code is not run because current_input_str only contains printable characters after cat -v:
+                # after cat -v, every line is safe to print with echo (no overwriting, no cursor jumps, no terminal corruption).
+
                 # check if current_input_str contains non printable characters (binary line detection)
                 # Notes:
                 # - non-ASCII characters (<=> command "grep -qE $'[^\x01-\x7F]';") are multi-byte and are supported by this script so are not considered as non printable
                 # - \r characters are supported only when at line end (aka Ctrl+M or "carriage return" characters = \x0D in ASCII, typically present in Windows files at line ends) because can lead to invalid display
                 # - impossible to check \x00 presence in a string with a bash script => \x00 is considered as printable and a warning message will be displayed if needed
-                if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< "$current_input_str")" != "" ]]; then # code duplicated in unit tests (a little slower but better than tr -d '[:print:][:blank:]\r§µ¨£°²' which operates based on single-byte ASCII characters by default)
-                    non_printable_status=1
-                else
-                    # check \r character presence at line end
-                    tmp_current_input_str="${current_input_str%$'\n'}" # remove ending \n
-                    tmp_current_input_str="${tmp_current_input_str%$'\r'}" # remove ending \r because can lead to invalid display
-                    if [[ "$tmp_current_input_str" == *$'\r'* ]]; then
-                        non_printable_status=1
-                    else
-                        non_printable_status=0
-                    fi
-                fi
+                # if [[ "$(sed 's/[[:print:][:blank:]\x0D\x09]//g' <<< "$current_input_str")" != "" ]]; then # code duplicated in unit tests (a little slower but better than tr -d '[:print:][:blank:]\r§µ¨£°²' which operates based on single-byte ASCII characters by default)
+                #     non_printable_status=1
+                # else
+                #     # check \r character presence at line end
+                #     tmp_current_input_str="${current_input_str%$'\n'}" # remove ending \n
+                #     tmp_current_input_str="${tmp_current_input_str%$'\r'}" # remove ending \r because can lead to invalid display
+                #     if [[ "$tmp_current_input_str" == *$'\r'* ]]; then
+                #         non_printable_status=1
+                #     else
+                #         non_printable_status=0
+                #     fi
+                # fi
             fi
             last_filepath="$filepath"
         fi
@@ -931,7 +936,7 @@ unit_tests() {
     check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo $'./a/b/c/file name.xxx:123:xx\x01aBcxx' | format_output "aBc" "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC} ${OTHER_COLOR}binary line(s)${NC}")
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC}\txx\x01${OTHER_COLOR}aBc${NC}xx")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo $'./a/b/c/file name.bin:123:xxaBcxx' | format_output "aBc" "" "" 0);
@@ -964,28 +969,19 @@ unit_tests() {
     exp=$(echo -e "${exp}A${HEADER_COLOR}B\ta${NC}bcDEF")
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    # (\x0D=\r shall be ignored for binary line detection when at line end)
-    res=$(echo $'./a/b/c/file name.xxx:123:AB\x0DabcDE\rFGH' | format_output $'\x0D' "$grep_ignorecase_option" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC} ${OTHER_COLOR}binary line(s)${NC}")
-    check_test_condition "$res" "$exp" $((test_idx++))
-
-    # (\x0D=\r shall be ignored for binary line detection when at line end)
-    res=$(echo $'./a/b/c/file name.xxx:123:AB\rabcDE\r' | format_output $'\x0D' "$grep_ignorecase_option" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC} ${OTHER_COLOR}binary line(s)${NC}")
-    check_test_condition "$res" "$exp" $((test_idx++))
-
-    # (\x0D=\r shall be ignored for binary line detection when at line end)
-    res=$(echo $'./a/b/c/file name.xxx:123:AB\rabcDE\x0D' | format_output "AB" "$grep_ignorecase_option" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC} ${OTHER_COLOR}binary line(s)${NC}")
-    check_test_condition "$res" "$exp" $((test_idx++))
-
-    # (\x0D=\r shall be ignored for binary line detection when at line end)
+    # (\x0D=\r shall be ignored for binary line detection)
     res=$(echo $'./a/b/c/file name.xxx:123:ABabcDE\r' | format_output $'\x0D' "$grep_ignorecase_option" "" 0);
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC}\t")
     exp=$(echo -e "${exp}ABabcDE${OTHER_COLOR}\r${NC}")
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    # (\x0D=\r shall be ignored for binary line detection when at line end)
+    # (\x0D=\r shall be ignored for binary line detection)
+    res=$(echo $'./a/b/c/file name.xxx:123:ABabcDE\r\rZZ' | format_output $'\x0D' "$grep_ignorecase_option" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC}\t")
+    exp=$(echo -e "${exp}ABabcDE${OTHER_COLOR}\r${NC}${OTHER_COLOR}\r${NC}ZZ")
+    check_test_condition "$res" "$exp" $((test_idx++))
+
+    # (\x0D=\r shall be ignored for binary line detection)
     res=$(echo $'./a/b/c/file name.xxx:123:ABabcDE\r' | format_output "AB" "" "" 0);
     exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.xxx:123${NC}\t")
     exp=$(echo -e "${exp}${OTHER_COLOR}AB${NC}abcDE")
@@ -1449,7 +1445,7 @@ fi
 
 echo "**********************************************************************"
 echo -n "find "
-echo -n "$strs_list"
+echo -n "$strs_list" | cat -v
 if [[ "$pathstrs_list" != "" ]]; then
     echo -n "in ${pathstrs_list}files "
 else

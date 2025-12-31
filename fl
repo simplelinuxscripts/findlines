@@ -5,7 +5,7 @@
 # Find all lines or multi-line paragraphs containing a set of strings in filtered files
 # of current folder and its subfolders recursively, in a simple way for most common usage,
 # without need of complex regular expressions. Special characters and binary files contents
-# can be searched.
+# can also be searched.
 #
 # USAGE:
 #  fl [-i] [-p=N] [-w] [pathstr|/pathstr]* str [+|-|++|-- str]*

@@ -1438,6 +1438,11 @@ trimmed_grep_ignorecase_option_applied="${grep_ignorecase_option_applied%"${grep
 trimmed_grep_word_option_applied="${grep_word_option_applied%"${grep_word_option_applied##*[![:space:]]}"}" # right trim
 format_command="| cat -v | format_output \"$reformatted_first_str_to_find\" \"$trimmed_grep_ignorecase_option_applied\" \"$trimmed_grep_word_option_applied\" \"$paragraphsize\" | expand -t 4" # cat -v is necessary because read -r is not binary safe
 if [[ $paragraphsize -ge 1 && "$extra_search_command" != "" ]]; then
+    if [[ $extra_search_command =~ [[:cntrl:]] ]]; then
+        # cat -v could modify extra_search_command
+        printError "error: non-printable characters shall not be part of extra search in paragraph mode"
+        exit 1
+    fi
     search_command="$SCRIPT_DIR/ff -print0 $pathstrs_list_for_call| xargs -0 $main_search_command$gather_paragraph_lines_command$extra_search_command$separate_paragraph_lines_command$format_command"
 else
     search_command="$SCRIPT_DIR/ff -print0 $pathstrs_list_for_call| xargs -0 $main_search_command$extra_search_command$format_command"

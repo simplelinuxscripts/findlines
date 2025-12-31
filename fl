@@ -89,7 +89,7 @@ BOLD=$'\E[1m'
 ITALIC=$'\E[3m'
 NC=$'\E[0m'
 
-    character_separator="@"
+character_separator="@"
 paragraph_separator="@@@@@@@@@@"
 paragraph_line_separator="${paragraph_separator}@@@@@"
 no_match="[?????]"

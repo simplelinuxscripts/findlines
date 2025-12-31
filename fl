@@ -89,9 +89,9 @@ BOLD=$'\E[1m'
 ITALIC=$'\E[3m'
 NC=$'\E[0m'
 
-character_separator="§"
-paragraph_separator="§§§§§§§§§§"
-paragraph_line_separator="${paragraph_separator}§§§§§"
+    character_separator="@"
+paragraph_separator="@@@@@@@@@@"
+paragraph_line_separator="${paragraph_separator}@@@@@"
 no_match="[?????]"
 grep_ignorecase_option="-i"
 grep_word_option="-w"
@@ -355,23 +355,24 @@ format_output() {
         if [[ "$last_filepath" != "$filepath" ]]; then
             # specific formatting (conditions on filepath to be adapted as needed - with below conditions, test files will be displayed in italic)
             specific_formatting=""
+            lowerfilepath=${filepath,,}
             if [[ "$filepath" == *"test"* || "$filepath" == *"Test"* || "$filepath" == *"TEST"* || "$filepath" == *"tst"* ]]; then
                 specific_formatting="$ITALIC"
             fi
             # source files (conditions on file suffix to be adapted as needed)
-            if [[ "$filepath" == *".c" || "$filepath" == *".cpp" || "$filepath" == *".java" ]]; then
+            if [[ "$lowerfilepath" == *".c" || "$lowerfilepath" == *".cpp" || "$lowerfilepath" == *".java" ]]; then
                 highlight_color="$SOURCE_COLOR$specific_formatting"
                 non_printable_status=0
             # header files (conditions on file suffix to be adapted as needed)
-            elif [[ "$filepath" == *".h" || "$filepath" == *".hh" || "$filepath" == *".hpp" ]]; then
+            elif [[ "$lowerfilepath" == *".h" || "$lowerfilepath" == *".hh" || "$lowerfilepath" == *".hpp" ]]; then
                 highlight_color="$HEADER_COLOR$specific_formatting"
                 non_printable_status=0
             # common non binary files
-            elif [[ "$filepath" == *".txt" || "$filepath" == *".js" || "$filepath" == *".log" || "$filepath" == *".html" || "$filepath" == *".xml" || "$filepath" == *".csv" ]]; then
+            elif [[ "$lowerfilepath" == *".txt" || "$lowerfilepath" == *".js" || "$lowerfilepath" == *".log" || "$lowerfilepath" == *".html" || "$lowerfilepath" == *".xml" || "$lowerfilepath" == *".csv" ]]; then
                 highlight_color="$OTHER_COLOR$specific_formatting"
                 non_printable_status=0
             # common binary files
-            elif [[ "$filepath" == *".o" || "$filepath" == *".obj" || "$filepath" == *".png" || "$filepath" == *".jpg" || "$filepath" == *".docx" || "$filepath" == *".zip" || "$filepath" == *".gz" || "$filepath" == *".bin" ]]; then
+            elif [[ "$lowerfilepath" == *".o" || "$lowerfilepath" == *".obj" || "$lowerfilepath" == *".png" || "$lowerfilepath" == *".jpg" || "$lowerfilepath" == *".docx" || "$lowerfilepath" == *".zip" || "$lowerfilepath" == *".gz" || "$lowerfilepath" == *".bin" ]]; then
                 highlight_color="$OTHER_COLOR$specific_formatting"
                 non_printable_status=1
             # other files

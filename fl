@@ -1433,7 +1433,7 @@ fi
 ############
 
 SCRIPT_DIR=$(dirname "$0")
-reformatted_first_str_to_find=$(echo "$first_str_to_find" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g' | sed 's/"/\\"/g')
+reformatted_first_str_to_find=$(echo "$first_str_to_find" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g' | sed 's/"/\\"/g' | cat -v)
 trimmed_grep_ignorecase_option_applied="${grep_ignorecase_option_applied%"${grep_ignorecase_option_applied##*[![:space:]]}"}" # right trim
 trimmed_grep_word_option_applied="${grep_word_option_applied%"${grep_word_option_applied##*[![:space:]]}"}" # right trim
 format_command="| cat -v | format_output \"$reformatted_first_str_to_find\" \"$trimmed_grep_ignorecase_option_applied\" \"$trimmed_grep_word_option_applied\" \"$paragraphsize\" | expand -t 4" # cat -v is necessary because read -r is not binary safe

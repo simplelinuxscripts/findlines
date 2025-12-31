@@ -2,7 +2,7 @@
 
 ###################################################################################################
 #
-# Find all lines or multi-line paragraphs which contain a set of strings in filtered files
+# Find all lines or multi-line paragraphs containing a set of strings in filtered files
 # of current folder and its subfolders recursively, in a simple way for most common usage,
 # without need of complex regular expressions. Special characters and binary files contents
 # can be searched.
@@ -12,11 +12,11 @@
 #
 # DESCRIPTION:
 #  The goal of this linux bash script is to simply and quickly display all the lines
-#  or multi-line paragraphs matching the str parameters in all the files being filtered
+#  or multi-line paragraphs matching the str parameters in all the files filtered
 #  by the pathstr parameters, see below examples.
 #  Special characters (like *, +, |, :, ...) do not need to be escaped, they are searched
 #  directly as provided in the str parameters, which makes the usage very simple.
-#  Binary files contents are also searched, so that as many matching lines as possible are
+#  Binary files contents can also be searched, so that as many matching lines as possible are
 #  displayed at the end and no occurrence is missed.
 #
 # OPTIONS:

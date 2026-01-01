@@ -132,8 +132,7 @@ abbreviate() {
         idx=$((length - MAX_ABBREVIATION_LEN))
         abbreviated_str_2="${str:idx:MAX_ABBREVIATION_LEN}" # substring
         abbreviated_str_2="${abbreviated_str_2#"${abbreviated_str_2%%[![:space:]]*}"}" # left trim
-        abbreviated_str=$(echo "" "$abbreviated_str_1$abbreviation_str$abbreviated_str_2" | cut -c2-)
-        echo "" "$abbreviated_str" | cut -c2-
+        echo "" "$abbreviated_str_1$abbreviation_str$abbreviated_str_2" | cut -c2-
     else
         echo "" "$str" | cut -c2-
     fi

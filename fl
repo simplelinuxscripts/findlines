@@ -98,7 +98,7 @@ grep_word_option="-w"
 
 abbreviation_str="$BOLD [...] $NC"
 
-prepare_read_r="sed 's/\r/^M/g' | tr -d '\000-\010\013\014\016-\037' | iconv -f utf-8 -t utf-8 -c" # read -r is not binary safe: this sequence of commands prepares read -r piped call and guarantees that subsequent echo "" "str" | sed 's/^.//' or printf calls will work properly
+prepare_read_r="sed 's/\r/^M/g' | tr -d '\000-\010\013\014\016-\037' | iconv -f utf-8 -t utf-8 -c" # read -r is not binary safe: this sequence of commands prepares read -r piped call and guarantees that subsequent echo or printf calls will work properly
 
 ###########
 # Functions
@@ -454,7 +454,7 @@ format_output() {
                     if [[ "$current_input_str" != "" ]]; then
                         tmp_abbreviated_str="${current_input_str%"${current_input_str##*[![:space:]]}"}" # right trim
                         tmp_abbreviated_str=$(abbreviate "$tmp_abbreviated_str")
-                        echo -n "" "$tmp_abbreviated_str" | sed 's/^.//' | tr -d '\n'
+                        echo -n "" "$tmp_abbreviated_str" | sed 's/^.//'
                     fi
                     break
                 fi
@@ -465,13 +465,13 @@ format_output() {
                         tmp_str="${tmp_str#"${tmp_str%%[![:space:]]*}"}" # left trim
                     fi
                     tmp_abbreviated_str=$(abbreviate "$tmp_str")
-                    echo -n "" "$tmp_abbreviated_str" | sed 's/^.//' | tr -d '\n'
+                    echo -n "" "$tmp_abbreviated_str" | sed 's/^.//'
                 fi
                 next_idx=$((idx + $searched_str_length))
                 length=$((next_idx - idx))
                 tmp_str="${current_input_str:idx:length}" # substring
                 echo -e -n "$highlight_color"
-                echo -n "" "$tmp_str" | sed 's/^.//' | tr -d '\n'
+                echo -n "" "$tmp_str" | sed 's/^.//'
                 echo -e -n "$NC"
                 at_least_one_occurrence_on_line=1
                 if [[ $next_idx -lt $current_input_str_length ]]; then
@@ -1451,7 +1451,7 @@ fi
 
 echo "**********************************************************************"
 echo -n "find "
-echo -n "" "$strs_list" | sed 's/^.//' | tr -d '\n' | eval "$prepare_read_r"
+echo -n "" "$strs_list" | sed 's/^.//' | eval "$prepare_read_r"
 if [[ "$pathstrs_list" != "" ]]; then
     echo -n "in ${pathstrs_list}files "
 else

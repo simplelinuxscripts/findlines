@@ -89,14 +89,16 @@ BOLD=$'\E[1m'
 ITALIC=$'\E[3m'
 NC=$'\E[0m'
 
-character_separator="@"
-paragraph_separator="@@@@@@@@@@"
-paragraph_line_separator="${paragraph_separator}@@@@@"
+character_separator="§"
+paragraph_separator="§§§§§§§§§§"
+paragraph_line_separator="${paragraph_separator}§§§§§"
 no_match="[?????]"
 grep_ignorecase_option="-i"
 grep_word_option="-w"
 
 abbreviation_str="$BOLD [...] $NC"
+
+prepare_read_r="sed 's/\r/^M/g' | tr -d '\000-\010\013\014\016-\037' | iconv -f utf-8 -t utf-8 -c" # read -r is not binary safe: this sequence of commands prepares read -r piped call and guarantees that subsequent echo "" "str" | cut -c2- or printf calls will work properly
 
 ###########
 # Functions
@@ -130,10 +132,10 @@ abbreviate() {
         idx=$((length - MAX_ABBREVIATION_LEN))
         abbreviated_str_2="${str:idx:MAX_ABBREVIATION_LEN}" # substring
         abbreviated_str_2="${abbreviated_str_2#"${abbreviated_str_2%%[![:space:]]*}"}" # left trim
-        abbreviated_str=$(echo "$abbreviated_str_1$abbreviation_str$abbreviated_str_2")
-        echo "$abbreviated_str"
+        abbreviated_str=$(echo "" "$abbreviated_str_1$abbreviation_str$abbreviated_str_2" | cut -c2-)
+        echo "" "$abbreviated_str" | cut -c2-
     else
-        echo "$str"
+        echo "" "$str" | cut -c2-
     fi
 }
 
@@ -141,7 +143,7 @@ abbreviate() {
 escape_special_chars() {
     local str=$1
 
-    echo "$str" | sed 's/\\/\\\\/g' | sed 's/\[/\\[/g' | sed 's/\]/\\]/g' | sed 's/+/\\+/g' | sed 's/(/\\(/g' | sed 's/)/\\)/g' | sed 's/{/\\{/g' | sed 's/}/\\}/g' | sed 's/\./\\./g' | sed 's/\^/\\^/g' | sed 's/\$/\\$/g' | sed 's/\?/\\?/g' |  sed 's/!/\\!/g' | sed 's/|/\\|/g' | sed 's/\*/\\*/g' | sed 's/-/\\-/g'
+    echo "" "$str" | cut -c2- | sed 's/\\/\\\\/g' | sed 's/\[/\\[/g' | sed 's/\]/\\]/g' | sed 's/+/\\+/g' | sed 's/(/\\(/g' | sed 's/)/\\)/g' | sed 's/{/\\{/g' | sed 's/}/\\}/g' | sed 's/\./\\./g' | sed 's/\^/\\^/g' | sed 's/\$/\\$/g' | sed 's/\?/\\?/g' |  sed 's/!/\\!/g' | sed 's/|/\\|/g' | sed 's/\*/\\*/g' | sed 's/-/\\-/g'
 }
 
 # check if 2 strings are "correlated"
@@ -153,21 +155,21 @@ correlated_strings() {
 
     if [[ $ignorecase_p -eq 0 ]]; then
         if [[ $word_for_str1_p -eq 0  ]]; then
-            str1=$(echo "$str1_p")
-            str2=$(echo "$str2_p")
+            str1=$(echo "" "$str1_p" | cut -c2-)
+            str2=$(echo "" "$str2_p" | cut -c2-)
         else
             # this simple str1_p reformatting covers most of cases
-            str1=$(echo " $str1_p " | sed 's/[^a-zA-Z0-9_]/ /g')
-            str2=$(echo "$str2_p" | sed 's/[^a-zA-Z0-9_]/ /g')
+            str1=$(echo "" " $str1_p " | cut -c2- | sed 's/[^a-zA-Z0-9_]/ /g')
+            str2=$(echo "" "$str2_p" | cut -c2- | sed 's/[^a-zA-Z0-9_]/ /g')
         fi
     else
         if [[ $word_for_str1_p -eq 0  ]]; then
-            str1=$(echo "$str1_p" | tr '[:upper:]' '[:lower:]')
-            str2=$(echo "$str2_p" | tr '[:upper:]' '[:lower:]')
+            str1=$(echo "" "$str1_p" | cut -c2- | tr '[:upper:]' '[:lower:]')
+            str2=$(echo "" "$str2_p" | cut -c2- | tr '[:upper:]' '[:lower:]')
         else
             # this simple str1_p reformatting covers most of cases
-            str1=$(echo " $str1_p " | tr '[:upper:]' '[:lower:]' | sed 's/[^a-zA-Z0-9_]/ /g')
-            str2=$(echo "$str2_p" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-zA-Z0-9_]/ /g')
+            str1=$(echo "" " $str1_p " | cut -c2- | tr '[:upper:]' '[:lower:]' | sed 's/[^a-zA-Z0-9_]/ /g')
+            str2=$(echo "" "$str2_p" | cut -c2- | tr '[:upper:]' '[:lower:]' | sed 's/[^a-zA-Z0-9_]/ /g')
         fi
     fi
 
@@ -214,7 +216,7 @@ gather_paragraph_lines() {
                 printError "gather_paragraph_lines error: empty paragraph"
                 exit 1
             fi
-            echo "$paragraph_lines"
+            echo "" "$paragraph_lines" | cut -c2-
             paragraph_lines=""
             echo "$paragraph_separator"
         else
@@ -229,7 +231,7 @@ gather_paragraph_lines() {
         printError "gather_paragraph_lines error: empty ending paragraph"
         exit 1
     fi
-    echo "$paragraph_lines"
+    echo "" "$paragraph_lines" | cut -c2-
 }
 
 # format output
@@ -380,8 +382,7 @@ format_output() {
                 highlight_color="$OTHER_COLOR$specific_formatting"
                 non_printable_status=0
 
-                # below code is not run because current_input_str only contains printable characters after cat -v:
-                # after cat -v, every line is safe to print with echo (no overwriting, no cursor jumps, no terminal corruption).
+                # below code is not run because prepare_read_r is assumed to have been run:
 
                 # check if current_input_str contains non printable characters (binary line detection)
                 # Notes:
@@ -454,7 +455,7 @@ format_output() {
                     if [[ "$current_input_str" != "" ]]; then
                         tmp_abbreviated_str="${current_input_str%"${current_input_str##*[![:space:]]}"}" # right trim
                         tmp_abbreviated_str=$(abbreviate "$tmp_abbreviated_str")
-                        echo -n "$tmp_abbreviated_str"
+                        echo -n "" "$tmp_abbreviated_str" | cut -c2- | tr -d '\n'
                     fi
                     break
                 fi
@@ -465,13 +466,13 @@ format_output() {
                         tmp_str="${tmp_str#"${tmp_str%%[![:space:]]*}"}" # left trim
                     fi
                     tmp_abbreviated_str=$(abbreviate "$tmp_str")
-                    echo -n "$tmp_abbreviated_str"
+                    echo -n "" "$tmp_abbreviated_str" | cut -c2- | tr -d '\n'
                 fi
                 next_idx=$((idx + $searched_str_length))
                 length=$((next_idx - idx))
                 tmp_str="${current_input_str:idx:length}" # substring
                 echo -e -n "$highlight_color"
-                echo -n "$tmp_str"
+                echo -n "" "$tmp_str" | cut -c2- | tr -d '\n'
                 echo -e -n "$NC"
                 at_least_one_occurrence_on_line=1
                 if [[ $next_idx -lt $current_input_str_length ]]; then
@@ -1315,7 +1316,7 @@ else
 fi
 if [[ $paragraphsize -ge 1 ]]; then
     paragraph_option_applied="-C$paragraphsize --group-separator=\"$paragraph_separator\" "
-    gather_paragraph_lines_command="| cat -v | gather_paragraph_lines " # cat -v is necessary because read -r is not binary safe
+    gather_paragraph_lines_command="| $prepare_read_r | gather_paragraph_lines "
     separate_paragraph_lines_command_args="s/${paragraph_line_separator}/\n/g" # code duplicated in unit tests
     separate_paragraph_lines_command="| sed \"$separate_paragraph_lines_command_args\" " # code duplicated in unit tests
     skip_line_info=""
@@ -1434,13 +1435,13 @@ fi
 ############
 
 SCRIPT_DIR=$(dirname "$0")
-reformatted_first_str_to_find=$(echo "$first_str_to_find" | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g' | sed 's/"/\\"/g' | cat -v)
+reformatted_first_str_to_find=$(echo "" "$first_str_to_find" | cut -c2- | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g' | sed 's/"/\\"/g' | eval "$prepare_read_r")
 trimmed_grep_ignorecase_option_applied="${grep_ignorecase_option_applied%"${grep_ignorecase_option_applied##*[![:space:]]}"}" # right trim
 trimmed_grep_word_option_applied="${grep_word_option_applied%"${grep_word_option_applied##*[![:space:]]}"}" # right trim
-format_command="| cat -v | format_output \"$reformatted_first_str_to_find\" \"$trimmed_grep_ignorecase_option_applied\" \"$trimmed_grep_word_option_applied\" \"$paragraphsize\" | expand -t 4" # cat -v is necessary because read -r is not binary safe
+format_command="| $prepare_read_r | format_output \"$reformatted_first_str_to_find\" \"$trimmed_grep_ignorecase_option_applied\" \"$trimmed_grep_word_option_applied\" \"$paragraphsize\" | expand -t 4"
 if [[ $paragraphsize -ge 1 && "$extra_search_command" != "" ]]; then
     if [[ $extra_search_command =~ [[:cntrl:]] ]]; then
-        # cat -v could modify extra_search_command
+        # prepare_read_r could modify extra_search_command
         printError "error: non-printable characters shall not be part of extra search in paragraph mode"
         exit 1
     fi
@@ -1451,7 +1452,7 @@ fi
 
 echo "**********************************************************************"
 echo -n "find "
-echo -n "$strs_list" | cat -v
+echo -n "" "$strs_list" | cut -c2- | tr -d '\n' | eval "$prepare_read_r"
 if [[ "$pathstrs_list" != "" ]]; then
     echo -n "in ${pathstrs_list}files "
 else

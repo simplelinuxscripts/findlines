@@ -98,7 +98,7 @@ grep_word_option="-w"
 
 abbreviation_str="$BOLD [...] $NC"
 
-prepare_read_r="sed 's/\r/^M/g' | tr -d '\000-\010\013\014\016-\037' | iconv -f utf-8 -t utf-8 -c" # read -r is not binary safe: this sequence of commands prepares read -r piped call and guarantees that subsequent echo "" "str" | cut -c2- or printf calls will work properly
+prepare_read_r="sed 's/\r/^M/g' | tr -d '\000-\010\013\014\016-\037' | iconv -f utf-8 -t utf-8 -c" # read -r is not binary safe: this sequence of commands prepares read -r piped call and guarantees that subsequent echo "" "str" | sed 's/^.//' or printf calls will work properly
 
 ###########
 # Functions
@@ -132,9 +132,9 @@ abbreviate() {
         idx=$((length - MAX_ABBREVIATION_LEN))
         abbreviated_str_2="${str:idx:MAX_ABBREVIATION_LEN}" # substring
         abbreviated_str_2="${abbreviated_str_2#"${abbreviated_str_2%%[![:space:]]*}"}" # left trim
-        echo "" "$abbreviated_str_1$abbreviation_str$abbreviated_str_2" | cut -c2-
+        echo "" "$abbreviated_str_1$abbreviation_str$abbreviated_str_2" | sed 's/^.//'
     else
-        echo "" "$str" | cut -c2-
+        echo "" "$str" | sed 's/^.//'
     fi
 }
 
@@ -142,7 +142,7 @@ abbreviate() {
 escape_special_chars() {
     local str=$1
 
-    echo "" "$str" | cut -c2- | sed 's/\\/\\\\/g' | sed 's/\[/\\[/g' | sed 's/\]/\\]/g' | sed 's/+/\\+/g' | sed 's/(/\\(/g' | sed 's/)/\\)/g' | sed 's/{/\\{/g' | sed 's/}/\\}/g' | sed 's/\./\\./g' | sed 's/\^/\\^/g' | sed 's/\$/\\$/g' | sed 's/\?/\\?/g' |  sed 's/!/\\!/g' | sed 's/|/\\|/g' | sed 's/\*/\\*/g' | sed 's/-/\\-/g'
+    echo "" "$str" | sed 's/^.//' | sed 's/\\/\\\\/g' | sed 's/\[/\\[/g' | sed 's/\]/\\]/g' | sed 's/+/\\+/g' | sed 's/(/\\(/g' | sed 's/)/\\)/g' | sed 's/{/\\{/g' | sed 's/}/\\}/g' | sed 's/\./\\./g' | sed 's/\^/\\^/g' | sed 's/\$/\\$/g' | sed 's/\?/\\?/g' |  sed 's/!/\\!/g' | sed 's/|/\\|/g' | sed 's/\*/\\*/g' | sed 's/-/\\-/g'
 }
 
 # check if 2 strings are "correlated"
@@ -154,21 +154,21 @@ correlated_strings() {
 
     if [[ $ignorecase_p -eq 0 ]]; then
         if [[ $word_for_str1_p -eq 0  ]]; then
-            str1=$(echo "" "$str1_p" | cut -c2-)
-            str2=$(echo "" "$str2_p" | cut -c2-)
+            str1=$(echo "" "$str1_p" | sed 's/^.//')
+            str2=$(echo "" "$str2_p" | sed 's/^.//')
         else
             # this simple str1_p reformatting covers most of cases
-            str1=$(echo "" " $str1_p " | cut -c2- | sed 's/[^a-zA-Z0-9_]/ /g')
-            str2=$(echo "" "$str2_p" | cut -c2- | sed 's/[^a-zA-Z0-9_]/ /g')
+            str1=$(echo "" " $str1_p " | sed 's/^.//' | sed 's/[^a-zA-Z0-9_]/ /g')
+            str2=$(echo "" "$str2_p" | sed 's/^.//' | sed 's/[^a-zA-Z0-9_]/ /g')
         fi
     else
         if [[ $word_for_str1_p -eq 0  ]]; then
-            str1=$(echo "" "$str1_p" | cut -c2- | tr '[:upper:]' '[:lower:]')
-            str2=$(echo "" "$str2_p" | cut -c2- | tr '[:upper:]' '[:lower:]')
+            str1=$(echo "" "$str1_p" | sed 's/^.//' | tr '[:upper:]' '[:lower:]')
+            str2=$(echo "" "$str2_p" | sed 's/^.//' | tr '[:upper:]' '[:lower:]')
         else
             # this simple str1_p reformatting covers most of cases
-            str1=$(echo "" " $str1_p " | cut -c2- | tr '[:upper:]' '[:lower:]' | sed 's/[^a-zA-Z0-9_]/ /g')
-            str2=$(echo "" "$str2_p" | cut -c2- | tr '[:upper:]' '[:lower:]' | sed 's/[^a-zA-Z0-9_]/ /g')
+            str1=$(echo "" " $str1_p " | sed 's/^.//' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-zA-Z0-9_]/ /g')
+            str2=$(echo "" "$str2_p" | sed 's/^.//' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-zA-Z0-9_]/ /g')
         fi
     fi
 
@@ -215,7 +215,7 @@ gather_paragraph_lines() {
                 printError "gather_paragraph_lines error: empty paragraph"
                 exit 1
             fi
-            echo "" "$paragraph_lines" | cut -c2-
+            echo "" "$paragraph_lines" | sed 's/^.//'
             paragraph_lines=""
             echo "$paragraph_separator"
         else
@@ -230,7 +230,7 @@ gather_paragraph_lines() {
         printError "gather_paragraph_lines error: empty ending paragraph"
         exit 1
     fi
-    echo "" "$paragraph_lines" | cut -c2-
+    echo "" "$paragraph_lines" | sed 's/^.//'
 }
 
 # format output
@@ -454,7 +454,7 @@ format_output() {
                     if [[ "$current_input_str" != "" ]]; then
                         tmp_abbreviated_str="${current_input_str%"${current_input_str##*[![:space:]]}"}" # right trim
                         tmp_abbreviated_str=$(abbreviate "$tmp_abbreviated_str")
-                        echo -n "" "$tmp_abbreviated_str" | cut -c2- | tr -d '\n'
+                        echo -n "" "$tmp_abbreviated_str" | sed 's/^.//' | tr -d '\n'
                     fi
                     break
                 fi
@@ -465,13 +465,13 @@ format_output() {
                         tmp_str="${tmp_str#"${tmp_str%%[![:space:]]*}"}" # left trim
                     fi
                     tmp_abbreviated_str=$(abbreviate "$tmp_str")
-                    echo -n "" "$tmp_abbreviated_str" | cut -c2- | tr -d '\n'
+                    echo -n "" "$tmp_abbreviated_str" | sed 's/^.//' | tr -d '\n'
                 fi
                 next_idx=$((idx + $searched_str_length))
                 length=$((next_idx - idx))
                 tmp_str="${current_input_str:idx:length}" # substring
                 echo -e -n "$highlight_color"
-                echo -n "" "$tmp_str" | cut -c2- | tr -d '\n'
+                echo -n "" "$tmp_str" | sed 's/^.//' | tr -d '\n'
                 echo -e -n "$NC"
                 at_least_one_occurrence_on_line=1
                 if [[ $next_idx -lt $current_input_str_length ]]; then
@@ -1434,7 +1434,7 @@ fi
 ############
 
 SCRIPT_DIR=$(dirname "$0")
-reformatted_first_str_to_find=$(echo "" "$first_str_to_find" | cut -c2- | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g' | sed 's/"/\\"/g' | eval "$prepare_read_r")
+reformatted_first_str_to_find=$(echo "" "$first_str_to_find" | sed 's/^.//' | sed 's/\\/\\\\/g' | sed 's/\$/\\$/g' | sed 's/`/\\`/g' | sed 's/"/\\"/g' | eval "$prepare_read_r")
 trimmed_grep_ignorecase_option_applied="${grep_ignorecase_option_applied%"${grep_ignorecase_option_applied##*[![:space:]]}"}" # right trim
 trimmed_grep_word_option_applied="${grep_word_option_applied%"${grep_word_option_applied##*[![:space:]]}"}" # right trim
 format_command="| $prepare_read_r | format_output \"$reformatted_first_str_to_find\" \"$trimmed_grep_ignorecase_option_applied\" \"$trimmed_grep_word_option_applied\" \"$paragraphsize\" | expand -t 4"
@@ -1451,7 +1451,7 @@ fi
 
 echo "**********************************************************************"
 echo -n "find "
-echo -n "" "$strs_list" | cut -c2- | tr -d '\n' | eval "$prepare_read_r"
+echo -n "" "$strs_list" | sed 's/^.//' | tr -d '\n' | eval "$prepare_read_r"
 if [[ "$pathstrs_list" != "" ]]; then
     echo -n "in ${pathstrs_list}files "
 else

@@ -126,16 +126,12 @@ abbreviate() {
     local str=$1
 
     length=${#str}
-    if [[ $length -gt $((MAX_ABBREVIATION_LEN * 2 + 10)) ]]; then
-        abbreviated_str_1="${str:0:MAX_ABBREVIATION_LEN}" # substring
-        abbreviated_str_1="${abbreviated_str_1%"${abbreviated_str_1##*[![:space:]]}"}" # right trim
-        idx=$((length - MAX_ABBREVIATION_LEN))
-        abbreviated_str_2="${str:idx:MAX_ABBREVIATION_LEN}" # substring
-        abbreviated_str_2="${abbreviated_str_2#"${abbreviated_str_2%%[![:space:]]*}"}" # left trim
-        echo "" "$abbreviated_str_1$abbreviation_str$abbreviated_str_2" | sed 's/^.//'
-    else
-        echo "" "$str" | sed 's/^.//'
-    fi
+    abbreviated_str_1="${str:0:MAX_ABBREVIATION_LEN}" # substring
+    abbreviated_str_1="${abbreviated_str_1%"${abbreviated_str_1##*[![:space:]]}"}" # right trim
+    idx=$((length - MAX_ABBREVIATION_LEN))
+    abbreviated_str_2="${str:idx:MAX_ABBREVIATION_LEN}" # substring
+    abbreviated_str_2="${abbreviated_str_2#"${abbreviated_str_2%%[![:space:]]*}"}" # left trim
+    echo "" "$abbreviated_str_1$abbreviation_str$abbreviated_str_2" | sed 's/^.//'
 }
 
 # escape special characters as needed by grep -E commmand
@@ -453,7 +449,10 @@ format_output() {
                     fi
                     if [[ "$current_input_str" != "" ]]; then
                         tmp_abbreviated_str="${current_input_str%"${current_input_str##*[![:space:]]}"}" # right trim
-                        tmp_abbreviated_str=$(abbreviate "$tmp_abbreviated_str")
+                        length=${#tmp_abbreviated_str}
+                        if [[ $length -gt $((MAX_ABBREVIATION_LEN * 2 + 10)) ]]; then
+                            tmp_abbreviated_str=$(abbreviate "$tmp_abbreviated_str")
+                        fi
                         echo -n "" "$tmp_abbreviated_str" | sed 's/^.//'
                     fi
                     break
@@ -464,8 +463,13 @@ format_output() {
                     if [[ $at_least_one_occurrence_on_line -eq 0 && $paragraph_size_p -eq 0 ]]; then
                         tmp_str="${tmp_str#"${tmp_str%%[![:space:]]*}"}" # left trim
                     fi
-                    tmp_abbreviated_str=$(abbreviate "$tmp_str")
-                    echo -n "" "$tmp_abbreviated_str" | sed 's/^.//'
+                    length=${#tmp_str}
+                    if [[ $length -gt $((MAX_ABBREVIATION_LEN * 2 + 10)) ]]; then
+                        tmp_abbreviated_str=$(abbreviate "$tmp_str")
+                        echo -n "" "$tmp_abbreviated_str" | sed 's/^.//'
+                    else
+                        echo -n "" "$tmp_str" | sed 's/^.//'
+                    fi
                 fi
                 next_idx=$((idx + $searched_str_length))
                 length=$((next_idx - idx))
@@ -655,12 +659,12 @@ unit_tests() {
     check_test_condition "$res" "$exp" $((test_idx++))
 
     # echo sensitive strings
-    res=$(echo "./a/b/c/file name.cpp:123:-e -n toto -e -n" | format_output "toto" "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t-e -n ${SOURCE_COLOR}toto${NC} -e -n")
+    res=$(echo "./a/b/c/file name.cpp:123:-e-ntoto-e-n" | format_output "toto" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t-e-n${SOURCE_COLOR}toto${NC}-e-n")
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    res=$(echo "./a/b/c/file name.cpp:123:-e -n -e -n" | format_output "-e" "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}-e${NC} -n ${SOURCE_COLOR}-e${NC} -n")
+    res=$(echo "./a/b/c/file name.cpp:123:-e-n-e-n" | format_output "-e" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}-e${NC}-n${SOURCE_COLOR}-e${NC}-n")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     # printf sensitive strings

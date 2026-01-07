@@ -655,17 +655,17 @@ unit_tests() {
     check_test_condition "$res" "$exp" $((test_idx++))
 
     # echo sensitive strings
-    res=$(echo "./a/b/c/file name.cpp:123:-e -n toto" | format_output "toto" "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t-e -n ${SOURCE_COLOR}toto${NC}")
+    res=$(echo "./a/b/c/file name.cpp:123:-e -n toto -e -n" | format_output "toto" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t-e -n ${SOURCE_COLOR}toto${NC} -e -n")
     check_test_condition "$res" "$exp" $((test_idx++))
 
-    res=$(echo "./a/b/c/file name.cpp:123:-e -n -e" | format_output "-e" "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}-e${NC} -n ${SOURCE_COLOR}-e${NC}")
+    res=$(echo "./a/b/c/file name.cpp:123:-e -n -e -n" | format_output "-e" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t${SOURCE_COLOR}-e${NC} -n ${SOURCE_COLOR}-e${NC} -n")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     # printf sensitive strings
-    res=$(echo "./a/b/c/file name.cpp:123:%s -n toto" | format_output "toto" "" "" 0);
-    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t%s -n ${SOURCE_COLOR}toto${NC}")
+    res=$(echo "./a/b/c/file name.cpp:123:%s -n toto %s" | format_output "toto" "" "" 0);
+    exp=$(echo -e "${FILEPATH_COLOR}1 a/b/c/file name.cpp:123${NC}\t%s -n ${SOURCE_COLOR}toto${NC} %s")
     check_test_condition "$res" "$exp" $((test_idx++))
 
     res=$(echo "./a/b/c/file name.cpp:123:%s -n %s" | format_output "%s" "" "" 0);

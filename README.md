@@ -1,4 +1,4 @@
-#### Linux bash script to find all lines or multi-line paragraphs containing a set of strings in filtered files of current folder and its subfolders recursively, in a simple way for most common usage, without need of complex regular expressions. Special characters and binary files contents can also be searched.  
+#### Linux bash script to find all lines or multi-line paragraphs containing a set of strings in filtered files of current folder and its subfolders recursively, in a simple way for most common usage, without need of regular expressions. Special characters and binary files contents are supported.  
 
 ### USAGE:
 

@@ -106,7 +106,7 @@ fi
 SCRIPT_DIR=$(dirname "$0")
 find_files_command="$SCRIPT_DIR/ff -noformatting $pathstrs_list_for_call"
 tabs=$'\x09\x09'
-eval "$find_files_command" | sed 's|^\./||' | rsync -auRl $dry_run_option--out-format="%n${tabs}%l bytes" --stats --files-from=- . "$target_folder_for_call" | grep -Ev '/\s*[0-9]+ bytes$' | sed "/Number of deleted files:/s/.*/${BOLD}&${NC}/" | sed "/Number of regular files transferred:/s/.*/${BOLD}&${NC}/" | sed "/Total transferred file size:/s/.*/${BOLD}&${NC}/"
+eval "$find_files_command" | sed 's|^\./||' | rsync -auRl $dry_run_option--out-format="%n${tabs}%l bytes" --stats --files-from=- . "$target_folder_for_call" | grep -Ev '/\s*[0-9]+ bytes$' | sed "/Number of deleted files:/s/.*/${BOLD}&${NC}/" | sed "/Number of regular files transferred:/s/.*/${BOLD}&${NC}/" | sed "/Total transferred file size:/s/.*/${BOLD}&${NC}/" | sed -E 's/([0-9]{7,} bytes)/\x1b[36m\1\x1b[0m/g'
 if [[ $files_only -eq 0 ]]; then
     echo
     echo "backup remaining (sub)folders structure$dry_run_str..."
